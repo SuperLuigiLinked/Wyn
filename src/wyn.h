@@ -1,3 +1,3 @@
 #pragma once
 
-extern void wyn_run(void);
+extern int wyn_run(void);

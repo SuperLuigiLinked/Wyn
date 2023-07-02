@@ -1,16 +1,13 @@
-#include <stdio.h>
+#include <wyn.h>
 
-struct Point { int x, y; };
-
+// int WINAPI wWinMain
+// (
+//     _In_ HINSTANCE hInstance,
+//     _In_opt_ HINSTANCE hPrevInstance,
+//     _In_ LPWSTR lpCmdLine,
+//     _In_ int nShowCmd
+// )
 int main(void)
 {
-    [[maybe_unused]]
-    struct Point p = (struct Point) { .x = 1, .y = 2 };
-
-    printf("%d + %d = %d\n :)\n", p.x, p.y, p.x + p.y);
-
-    [[maybe_unused]]
-    bool test = true;
-    
-    return 0;
+    return wyn_run();
 }
