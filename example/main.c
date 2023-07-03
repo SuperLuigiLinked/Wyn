@@ -24,7 +24,8 @@ int main(void)
 
 extern void wyn_on_start(struct wyn_events_t* events)
 {
-    puts("[WYN - START]");
+    fputs("[WYN - START]\n", stderr);
+
     const wyn_window_t window = wyn_open_window(events);
     if (!window) wyn_quit(events, 1);
     wyn_show_window(events, window);
@@ -32,12 +33,13 @@ extern void wyn_on_start(struct wyn_events_t* events)
 
 extern void wyn_on_stop(struct wyn_events_t* events [[maybe_unused]])
 {
-    puts("[WYN - STOP]");
+    fputs("[WYN - STOP]\n", stderr);
 }
 
 extern void wyn_on_window_close(struct wyn_events_t* events, wyn_window_t window)
 {
-    puts("[WYN - CLOSE]");
+    fputs("[WYN - CLOSE]\n", stderr);
+    
     wyn_quit(events, 0);
 }
 

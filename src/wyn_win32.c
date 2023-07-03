@@ -31,10 +31,12 @@ struct wyn_events_t
 
 static struct wyn_events_t g_events = {};
 
+// -------------------------------------------------------------------------------------------------------------------------------- //
+
 static bool wyn_init(struct wyn_events_t* events);
 static void wyn_terminate(struct wyn_events_t* events);
 
-static int wyn_run_native(void);
+static int wyn_run_native(struct wyn_events_t* events);
 static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // ================================================================================================================================ //
@@ -49,7 +51,7 @@ extern int wyn_run(void)
     if (wyn_init(&g_events))
     {
         wyn_on_start(&g_events);
-        code = wyn_run_native();
+        code = wyn_run_native(&g_events);
         wyn_on_stop(&g_events);
     }
     wyn_terminate(&g_events);
@@ -109,7 +111,7 @@ static void wyn_terminate(struct wyn_events_t* events)
 
 // -------------------------------------------------------------------------------------------------------------------------------- //
 
-static int wyn_run_native(void)
+static int wyn_run_native(struct wyn_events_t* events [[maybe_unused]])
 {
     for (;;)
     {
