@@ -4,6 +4,16 @@
 
 #pragma once
 
+/**
+ *  All Wyn functions must be called on the Main Thread, unless otherwise specified.
+ *
+ *  The user must first call `wyn_run` to start the Event Loop.
+ *  The library will then call the user-defined `wyn_on_*` callback functions as relevant while it runs.
+ *
+ *  From the time `wyn_on_start` is called, until the time `wyn_on_stop` returns,
+ *  it is safe to call other Wyn functions and use Wyn pointers/handles.
+ */
+
 // ================================================================================================================================ //
 // Type Declarations
 // -------------------------------------------------------------------------------------------------------------------------------- //
@@ -14,7 +24,7 @@
 struct wyn_events_t;
 
 /**
- * Window type.
+ * Window handle type.
  */
 typedef void* wyn_window_t;
 
@@ -23,7 +33,7 @@ typedef void* wyn_window_t;
 // -------------------------------------------------------------------------------------------------------------------------------- //
 
 /**
- * Starts the Event Loop. Must not be called while the Event Loop is running.
+ * Starts the Event Loop. Must not be called while the Event Loop is already running.
  */
 extern int wyn_run(void);
 
