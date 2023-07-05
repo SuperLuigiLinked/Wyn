@@ -17,7 +17,10 @@
 // )
 int main(void)
 {
-    return wyn_run();
+    fputs("[START]\n", stderr);
+    const int code = wyn_run();
+    fputs("[STOP]\n", stderr);
+    return code;
 }
 
 // ================================================================================================================================ //
