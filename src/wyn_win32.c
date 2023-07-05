@@ -46,7 +46,6 @@ static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 extern int wyn_run(void)
 {
     int code = EXIT_FAILURE;
-    g_events = (struct wyn_events_t){};
 
     if (wyn_init(&g_events))
     {
@@ -77,6 +76,8 @@ static const DWORD ex_style = WS_EX_NOREDIRECTIONBITMAP;
 
 static bool wyn_init(struct wyn_events_t* events)
 {
+    *events = (struct wyn_events_t){};
+    
     events->hInstance = GetModuleHandleW(NULL);
     if (events->hInstance == 0) return false;
 
