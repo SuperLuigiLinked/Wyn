@@ -27,7 +27,8 @@ extern void wyn_on_start(struct wyn_events_t* events)
     fputs("[WYN - START]\n", stderr);
 
     const wyn_window_t window = wyn_open_window(events);
-    if (!window) wyn_quit(events, 1);
+    if (!window) return wyn_quit(events, 1);
+
     wyn_show_window(events, window);
 }
 
