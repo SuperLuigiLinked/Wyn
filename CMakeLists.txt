@@ -14,6 +14,7 @@ elseif (APPLE)
     target_sources(wyn PRIVATE "src/wyn_cocoa.c")
 elseif (UNIX)
     target_sources(wyn PRIVATE "src/wyn_xlib.c")
+    target_link_libraries(wyn "X11")
 endif()
 
 target_include_directories(wyn PUBLIC "include/")
@@ -29,6 +30,7 @@ target_link_libraries(example wyn)
 target_compile_options(wyn
     PRIVATE
         "-Weverything"
+        "-Wno-padded"
         "-Wno-c++98-compat"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
