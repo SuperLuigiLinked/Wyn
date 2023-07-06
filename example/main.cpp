@@ -6,7 +6,19 @@
 
 #include <stdio.h>
 
+#include <thread>
+#include <chrono>
+
 // ================================================================================================================================ //
+
+static std::thread cpp_thread{};
+
+void thread_func()
+{    
+    puts("Hello from C++ Thread!");
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    puts("Goodbye from C++ Thread!");
+}
 
 // int WINAPI wWinMain
 // (
@@ -20,12 +32,13 @@ int main(void)
     fputs("[START]\n", stderr);
     const int code = wyn_run();
     fputs("[STOP]\n", stderr);
+
     return code;
 }
 
 // ================================================================================================================================ //
 
-extern void wyn_on_start(struct wyn_events_t* events)
+WYN_API void wyn_on_start(struct wyn_events_t* events)
 {
     fputs("[WYN - START]\n", stderr);
 
@@ -33,14 +46,18 @@ extern void wyn_on_start(struct wyn_events_t* events)
     if (!window) return wyn_quit(events, 1);
 
     wyn_show_window(events, window);
+
+    cpp_thread = std::thread(thread_func);
 }
 
-extern void wyn_on_stop(struct wyn_events_t* events [[maybe_unused]])
+WYN_API void wyn_on_stop(struct wyn_events_t* events)
 {
     fputs("[WYN - STOP]\n", stderr);
+
+    cpp_thread.join();
 }
 
-extern void wyn_on_window_close(struct wyn_events_t* events, wyn_window_t window)
+WYN_API void wyn_on_window_close(struct wyn_events_t* events, wyn_window_t window)
 {
     fputs("[WYN - CLOSE]\n", stderr);
     

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.23)
 project(wyn)
 
 set(CMAKE_C_STANDARD 23)
+set(CMAKE_CXX_STANDARD 23)
 
 # ================================================================ #
 
@@ -23,7 +24,7 @@ target_include_directories(wyn PUBLIC "include/")
 # ================================================================ #
 
 add_executable(example MACOSX_BUNDLE)
-target_sources(example PRIVATE "example/main.c")
+target_sources(example PRIVATE "example/main.cpp")
 target_link_libraries(example wyn)
 
 # ================================================================ #
@@ -33,6 +34,7 @@ target_compile_options(wyn
         "-Weverything"
         "-Wno-padded"
         "-Wno-c++98-compat"
+        "-Wno-c++17-extensions"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
 )
