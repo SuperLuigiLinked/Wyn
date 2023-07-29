@@ -18,6 +18,10 @@
 // )
 int main(void)
 {
+    extern void test_cpp(void);
+    test_cpp();
+    return 0;
+
     wyt_thread_t thread;
 
     fputs("[START]\n", stderr);

@@ -1,10 +1,11 @@
 add_executable(example MACOSX_BUNDLE)
 add_executable(wyn::example ALIAS example)
 
-target_sources(example PRIVATE "main.c")
+target_sources(example PRIVATE "main.c" "test.cpp")
 target_link_libraries(example wyn::wyn wyn::wyt)
 
 target_compile_features(example PRIVATE c_std_23)
+target_compile_features(example PRIVATE cxx_std_23)
 
 target_compile_options(example
     PRIVATE
