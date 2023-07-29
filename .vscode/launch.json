@@ -8,9 +8,9 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug",
-            "program": "${workspaceFolder}/build/example",
+            "program": "${workspaceFolder}/build/example/example",
             "osx": {
-                "program": "${workspaceFolder}/build/example.app"
+                "program": "${workspaceFolder}/build/example/example.app"
             },
             "args": [],
             "cwd": "${workspaceFolder}",

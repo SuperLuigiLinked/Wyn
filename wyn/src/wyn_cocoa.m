@@ -28,7 +28,7 @@
 
 struct wyn_events_t 
 {
-    void* userdata,
+    void* userdata;
 
     wyn_delegate_t* delegate;
 

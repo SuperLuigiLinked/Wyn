@@ -8,7 +8,7 @@ if (WIN32)
     target_sources(wyt PRIVATE "src/wyt_win32.c")
 elseif (UNIX)
     target_sources(wyt PRIVATE "src/wyt_pthreads.c")
-    target_link_libraries(wyt "pthreads")
+    target_link_libraries(wyt "pthread")
 endif()
 
 target_compile_features(wyt PRIVATE c_std_23)
