@@ -15,6 +15,7 @@ extern "C" {
  *  WYN: Cross-Platform Windowing Library.
  *
  *  All Wyn functions must be called on the Main Thread, unless otherwise specified.
+ *
  *  All pointers/handles passed to functions must be NON-NULL, and all return values will be NON-NULL, unless otherwise specified.
  *
  *  The user must first call `wyn_run` to start the Event Loop.
