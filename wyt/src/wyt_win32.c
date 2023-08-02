@@ -46,7 +46,7 @@
 inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den);
 
 /**
- * Entry point for `wyt_spawn`-ed threads.
+ * Entry point for threads created by `wyt_spawn`.
  * Due to platform API differences, the user-provided function often cannot be called directly.
  * This function acts as a wrapper to unify the different function signatures between platforms.
  */
@@ -139,10 +139,10 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
      */
 {
     const HANDLE heap = GetProcessHeap();
-    WYT_ASSERT(heap != NULL);
+    if (heap == NULL) return NULL;
 
     struct wyt_thread_args* thread_args = HeapAlloc(heap, 0, sizeof(struct wyt_thread_args));
-    WYT_ASSERT(thread_args != NULL);
+    if (thread_args == NULL) return NULL;
 
     *thread_args = (struct wyt_thread_args){
         .func = func,
