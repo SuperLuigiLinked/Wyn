@@ -56,6 +56,11 @@ typedef signed long long wyt_duration_t;
  */
 typedef void* wyt_thread_t;
 
+/**
+ * Integer capable of holding a unique Thread Identifier.
+ */
+typedef unsigned long long wyt_tid_t;
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -89,21 +94,28 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg);
 
 /**
  * Terminates the current thread.
- * The effects are the same as returning from the thread function.
+ * The effects are the same as returning from the thread's start function.
  */
 WYT_NORETURN extern void wyt_exit(void);
 
 /**
  * Waits until the specified thread has terminated.
  * After calling this function, the thread handle is invalid and must not be used.
+ * A thread must not attempt to join itself.
  */
 extern void wyt_join(wyt_thread_t thread);
 
 /**
  * Detaches the specified thread, allowing it to execute independently.
  * After calling this function, the thread handle is invalid and must not be used.
+ * A thread must not attempt to detach itself.
  */
 extern void wyt_detach(wyt_thread_t thread);
+
+/**
+ * Returns the Thread ID for the Current Thread.
+ */
+extern wyt_tid_t wyt_current_tid(void);
 
 // ================================================================================================================================
 

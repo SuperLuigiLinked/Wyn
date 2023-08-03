@@ -16,18 +16,26 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef _VC_NODEFAULTLIB
-    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
+    /*
+     * https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
+     */
     #define WYT_ASSERT(expr) if (expr) {} else FatalExit(1)
 #else
-    // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
+    /*
+     * https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
+     */
     #define WYT_ASSERT(expr) if (expr) {} else abort()
 #endif
 
 #if defined(__GNUC__)
-    // https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-_005f_005fbuiltin_005funreachable
+    /*
+     * https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-_005f_005fbuiltin_005funreachable
+     */
     #define WYT_UNREACHABLE() __builtin_unreachable()
 #elif defined(_MSC_VER)
-    // https://learn.microsoft.com/en-us/cpp/intrinsics/assume
+    /*
+     * https://learn.microsoft.com/en-us/cpp/intrinsics/assume
+     */
     #define WYT_UNREACHABLE() __assume(false)
 #else
     #define WYT_UNREACHABLE() WYT_ASSERT(false)
@@ -150,12 +158,12 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
     };
 
 #ifdef _VC_NODEFAULTLIB
-    const HANDLE thread = CreateThread(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
+    const HANDLE handle = CreateThread(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
 #else
-    const uintptr_t thread = _beginthreadex(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
+    const uintptr_t handle = _beginthreadex(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
 #endif
 
-    return (wyt_thread_t)thread;
+    return (wyt_thread_t)handle;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -183,13 +191,37 @@ extern void wyt_join(wyt_thread_t thread)
      * https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
      */
 {
-    const DWORD obj = WaitForSingleObject(thread, INFINITE);
+    const HANDLE handle = (HANDLE)thread;
+
+    const DWORD obj = WaitForSingleObject(handle, INFINITE);
     WYT_ASSERT(obj == WAIT_OBJECT_0);
 
-#ifdef _VC_NODEFAULTLIB
-    const BOOL res = CloseHandle((HANDLE)thread);
+    const BOOL res = CloseHandle(handle);
     WYT_ASSERT(res != FALSE);
-#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyt_detach(wyt_thread_t thread)
+    /*
+     * https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
+     */
+{
+    const HANDLE handle = (HANDLE)thread;
+
+    const BOOL res = CloseHandle(handle);
+    WYT_ASSERT(res != FALSE);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyt_tid_t wyt_current_tid(void)
+    /*
+     * https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
+     */
+{
+    const DWORD tid = GetCurrentThreadId();
+    return (wyt_tid_t)tid;
 }
 
 // ================================================================================================================================
