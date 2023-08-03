@@ -22,7 +22,6 @@ extern "C" void test_cpp(void)
         std::latch latch{ 1 };
         latch.arrive_and_wait();
 
-
         std::thread{ cpp_yield }.detach();
     #ifndef __APPLE__
         std::jthread{ cpp_yield }.detach();
