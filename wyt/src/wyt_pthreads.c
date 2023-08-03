@@ -4,7 +4,9 @@
 
 #include "wyt.h"
 
-#define _GNU_SOURCE
+#ifndef __APPLE__
+    #define _GNU_SOURCE
+#endif
 
 #include <stdlib.h>
 #include <errno.h>
@@ -198,9 +200,16 @@ extern void wyt_detach(wyt_thread_t thread)
 extern wyt_tid_t wyt_current_tid(void)
     /*
      * Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
+     * Apple: https://www.manpagez.com/man/3/pthread_threadid_np/
      */
 {
+#ifdef __APPLE__
+    uint64_t tid;
+    const int res = pthread_threadid_np(NULL, &tid);
+    WYT_ASSERT(res == 0);
+#else
     const pid_t tid = gettid();
+#endif
     return (wyt_tid_t)tid;
 }
 

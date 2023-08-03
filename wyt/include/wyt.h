@@ -60,7 +60,7 @@ typedef void* wyt_thread_t;
  * Integer capable of holding a Thread Identifier.
  * A Thread ID is guaranteed to be unique at least as long as the thread is still running.
  */
-typedef unsigned int wyt_tid_t;
+typedef unsigned long long wyt_tid_t;
 
 // ================================================================================================================================
 //  API Functions
