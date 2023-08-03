@@ -4,10 +4,13 @@
 
 #include "wyt.h"
 
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
 
+#include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
 
@@ -188,6 +191,17 @@ extern void wyt_detach(wyt_thread_t thread)
 {
     const int res = pthread_detach((pthread_t)thread);
     WYT_ASSERT(res == 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyt_tid_t wyt_current_tid(void)
+    /*
+     * Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
+     */
+{
+    const pid_t tid = gettid();
+    return (wyt_tid_t)tid;
 }
 
 // ================================================================================================================================
