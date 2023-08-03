@@ -3,6 +3,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <wyn.h>
 #include <wyt.h>
@@ -19,6 +20,24 @@ static void thread_func(void* arg [[maybe_unused]])
     fputs("[THREAD] GOODBYE!\n", stderr);
 }
 
+static void test_tid_2(void* arg)
+{
+    const wyt_tid_t tid = wyt_current_tid();
+    const wyt_tid_t mid = *(const wyt_tid_t*)arg;
+    fprintf(stderr, "[THRD] %llu\n", tid);
+    fprintf(stderr, "[MAIN] %llu\n", mid);
+}
+
+static void test_tid(void)
+{
+    wyt_tid_t tid = wyt_current_tid();
+    fprintf(stderr, "[MAIN] %llu\n", tid);
+
+    const wyt_thread_t thread = wyt_spawn(test_tid_2, &tid);
+    if (!thread) abort();
+    wyt_join(thread);
+}
+
 // ================================================================================================================================ //
 
 // int WINAPI wWinMain
@@ -30,6 +49,13 @@ static void thread_func(void* arg [[maybe_unused]])
 // )
 int main(void)
 {
+    const wyt_time_t tp1 = wyt_nanotime();
+    test_tid();
+    const wyt_time_t tp2 = wyt_nanotime();
+    const wyt_duration_t elapsed = (wyt_duration_t)(tp2 - tp1);
+    fprintf(stderr, "[time] %lld ns\n", elapsed);
+    return 0;
+
     wyt_thread_t thread = NULL;
 
     fputs("[START]\n", stderr);
