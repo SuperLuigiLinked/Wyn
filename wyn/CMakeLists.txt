@@ -23,4 +23,5 @@ target_compile_options(wyn
         # "-Wno-c++17-extensions"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
+        "-Wno-padded"
 )
