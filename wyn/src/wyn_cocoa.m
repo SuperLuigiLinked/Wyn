@@ -117,11 +117,19 @@ extern void wyn_quit(void)
 /**
  * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
  * @see https://developer.apple.com/documentation/dispatch/3191902-dispatch_async_and_wait_f
+ * @see https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
  */
 extern void wyn_execute(void (*func)(void *), void *arg)
 {
-    const dispatch_queue_main_t queue = dispatch_get_main_queue();
-    dispatch_async_and_wait_f(queue, arg, func);
+    if ([NSThread isMainThread])
+    {
+        func(arg);
+    }
+    else
+    {
+        const dispatch_queue_main_t queue = dispatch_get_main_queue();
+        dispatch_async_and_wait_f(queue, arg, func);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -221,6 +229,8 @@ static bool wyn_init(void* userdata)
 
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
  */
 static void wyn_terminate(void)
 {
@@ -228,7 +238,11 @@ static void wyn_terminate(void)
 
     wyn_execute_async(wyn_async_close, nil);
     wyn_execute_async(wyn_async_stop, nil);
+    
+    [NSEvent stopPeriodicEvents];
+    [NSEvent startPeriodicEventsAfterDelay:0.0 withPeriod:0.1];
     [NSApp run];
+    [NSEvent stopPeriodicEvents];
     
     wyn_state.clearing_events = false;
 }
