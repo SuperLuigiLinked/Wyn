@@ -34,7 +34,9 @@
 @end
 
 /**
- * @brief Internal structure for holding Wyn state.
+ * @brief Static instance of all Wyn state.
+ * @details Because Wyn can only be used on the Main Thread, it is safe to have static-storage state.
+ *          This state must be global so it can be reached by callbacks on certain platforms.
  */
 struct wyn_state_t 
 {
@@ -52,6 +54,8 @@ static struct wyn_state_t wyn_state = {};
 
 /**
  * @brief Initializes all Wyn state.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @return `true` if successful, `false` if there were errors.
  */
 static bool wyn_init(void* userdata);
 
@@ -60,7 +64,16 @@ static bool wyn_init(void* userdata);
  */
 static void wyn_terminate(void);
 
+/**
+ * @brief Closes all remaining open Windows.
+ * @param[in] arg [unused]
+ */
 static void wyn_async_close(void* arg);
+
+/**
+ * @brief Stops the running NSApplication.
+ * @param[in] arg [unused]
+ */
 static void wyn_async_stop(void* arg);
 
 /**
