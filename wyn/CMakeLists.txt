@@ -1,8 +1,15 @@
 add_library(wyn)
 add_library(wyn::wyn ALIAS wyn)
 
+# ================================================================ #
+
 target_include_directories(wyn PUBLIC "include/")
 target_sources(wyn PUBLIC "include/wyn.h")
+
+if (WYN_USE_STUBS)
+    # message(STATUS "Using `wyn_stubs.c`.")
+    target_sources(wyn PRIVATE "src/wyn_stubs.c")
+endif()
 
 if (WIN32)
     target_sources(wyn PRIVATE "src/wyn_win32.c")
@@ -13,6 +20,8 @@ elseif (UNIX)
     target_sources(wyn PRIVATE "src/wyn_xlib.c")
     target_link_libraries(wyn "X11")
 endif()
+
+# ================================================================ #
 
 target_compile_features(wyn PRIVATE c_std_23)
 
@@ -25,3 +34,5 @@ target_compile_options(wyn
         "-Wno-gnu-empty-initializer"
         "-Wno-padded"
 )
+
+# ================================================================ #
