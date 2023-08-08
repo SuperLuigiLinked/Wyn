@@ -67,7 +67,7 @@ static void thread_func(void* arg)
     wyn_execute(print_tid, "THREAD 2");
     wyn_execute_async(print_tid, "THREAD 3");
 
-    wyn_execute_async(quit_async, NULL);
+    //wyn_execute_async(quit_async, NULL);
 }
 
 // ================================================================================================================================

@@ -8,7 +8,7 @@
  * The user must first call `wyn_run` to start the Event Loop.
  * The library will then call the user-defined `wyn_on_*` callback functions as relevant while it runs.
  *
- * From the time `wyn_on_start` is called, until the time `wyn_on_stop` returns (and all async-callbacks are cleared),
+ * From the time `wyn_on_start` is called, until the time `wyn_on_stop` returns (and all exec-callbacks are cleared),
  * it is safe to call other Wyn functions and use Wyn pointers/handles.
  */
 
@@ -110,7 +110,7 @@ extern void wyn_on_start(void* userdata);
 /**
  * @brief Called once before the Event Loop has been terminated.
  * @details After this function returns, the following will happen:
- *            1. All remaining async-callbacks will be called.
+ *            1. All remaining exec-callbacks will be called.
  *            2. All remaining windows will be forcibly closed, without calling the user-callback.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  */

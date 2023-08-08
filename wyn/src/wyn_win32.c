@@ -12,7 +12,7 @@
 #include <Windows.h>
 
 // ================================================================================================================================
-//  Macros
+//  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef _VC_NODEFAULTLIB
@@ -28,7 +28,7 @@
 #endif
 
 // ================================================================================================================================
-//  Declarations
+//  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -77,7 +77,7 @@ static bool wyn_init(void* userdata);
 static void wyn_terminate(void);
 
 /**
- * @brief Runs all pending async-callbacks.
+ * @brief Runs all pending exec-callbacks.
  */
 static void wyn_clear_events(void);
 
@@ -105,134 +105,6 @@ static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
  * @brief WndProc for regular Windows.
  */
 static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
-// ================================================================================================================================
-//  Public Definitions
-// --------------------------------------------------------------------------------------------------------------------------------
-
-extern void wyn_run(void* userdata)
-{
-    if (wyn_init(userdata))
-    {
-        wyn_on_start(userdata);
-        wyn_run_native();
-        wyn_on_stop(userdata);
-    }
-    wyn_terminate();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
- */
-extern void wyn_quit(void)
-{
-    PostQuitMessage(0);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
- * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessagew
- * @see https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
- */
-extern void wyn_execute(void (*func)(void*), void* arg)
-{
-    {
-        DWORD bytes_written = 0;
-        const struct wyn_callback_t callback = { .func = func, .arg = arg };
-    
-        const BOOL res = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
-        WYN_ASSERT(res != FALSE);
-        WYN_ASSERT(bytes_written == sizeof(callback));
-        
-        atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_acq_rel);
-    }
-
-    {
-        [[maybe_unused]] const LRESULT ret = SendMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
-        const DWORD err = GetLastError();
-        WYN_ASSERT(err != ERROR_ACCESS_DENIED);
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
- * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
- */
-extern void wyn_execute_async(void (*func)(void*), void* arg)
-{
-    {
-        DWORD bytes_written = 0;
-        const struct wyn_callback_t callback = { .func = func, .arg = arg };
-
-        const BOOL res = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
-        WYN_ASSERT(res != FALSE);
-        WYN_ASSERT(bytes_written == sizeof(callback));
-        
-        atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_acq_rel);
-    }    
-
-    {
-        const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
-        WYN_ASSERT(res != FALSE);
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
- */
-extern wyn_window_t wyn_open_window(void)
-{
-    const HWND hWnd = CreateWindowExW(
-        0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW,
-        0, 0, 640, 480,
-        NULL, NULL, wyn_state.hinstance, NULL
-    );
-
-    return (wyn_window_t)hWnd;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-closewindow
- */
-extern void wyn_close_window(wyn_window_t window)
-{
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = CloseWindow(hWnd);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
- */
-extern void wyn_show_window(wyn_window_t window)
-{
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_SHOW);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
- */
-extern void wyn_hide_window(wyn_window_t window)
-{
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_HIDE);
-}
 
 // ================================================================================================================================
 //  Private Definitions
@@ -471,6 +343,134 @@ static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
     const LRESULT res = DefWindowProcW(hWnd, uMsg, wParam, lParam);
     return res;
+}
+
+// ================================================================================================================================
+//  Public Definitions
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_run(void* userdata)
+{
+    if (wyn_init(userdata))
+    {
+        wyn_on_start(userdata);
+        wyn_run_native();
+        wyn_on_stop(userdata);
+    }
+    wyn_terminate();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
+ */
+extern void wyn_quit(void)
+{
+    PostQuitMessage(0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessagew
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
+ */
+extern void wyn_execute(void (*func)(void*), void* arg)
+{
+    {
+        DWORD bytes_written = 0;
+        const struct wyn_callback_t callback = { .func = func, .arg = arg };
+    
+        const BOOL res = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
+        WYN_ASSERT(res != FALSE);
+        WYN_ASSERT(bytes_written == sizeof(callback));
+        
+        atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_acq_rel);
+    }
+
+    {
+        [[maybe_unused]] const LRESULT ret = SendMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+        const DWORD err = GetLastError();
+        WYN_ASSERT(err != ERROR_ACCESS_DENIED);
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
+ */
+extern void wyn_execute_async(void (*func)(void*), void* arg)
+{
+    {
+        DWORD bytes_written = 0;
+        const struct wyn_callback_t callback = { .func = func, .arg = arg };
+
+        const BOOL res = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
+        WYN_ASSERT(res != FALSE);
+        WYN_ASSERT(bytes_written == sizeof(callback));
+        
+        atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_acq_rel);
+    }    
+
+    {
+        const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+        WYN_ASSERT(res != FALSE);
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
+ */
+extern wyn_window_t wyn_open_window(void)
+{
+    const HWND hWnd = CreateWindowExW(
+        0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW,
+        0, 0, 640, 480,
+        NULL, NULL, wyn_state.hinstance, NULL
+    );
+
+    return (wyn_window_t)hWnd;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-closewindow
+ */
+extern void wyn_close_window(wyn_window_t window)
+{
+    const HWND hWnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = CloseWindow(hWnd);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+ */
+extern void wyn_show_window(wyn_window_t window)
+{
+    const HWND hWnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_SHOW);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+ */
+extern void wyn_hide_window(wyn_window_t window)
+{
+    const HWND hWnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_HIDE);
 }
 
 // ================================================================================================================================

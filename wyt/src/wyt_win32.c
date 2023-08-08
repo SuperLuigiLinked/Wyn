@@ -12,7 +12,7 @@
 #endif
 
 // ================================================================================================================================
-//  Macros
+//  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef _VC_NODEFAULTLIB
@@ -42,7 +42,7 @@
 #endif
 
 // ================================================================================================================================
-//  Declarations
+//  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -72,6 +72,41 @@ struct wyt_thread_args
     void (*func)(void*);
     void* arg;
 };
+
+// ================================================================================================================================
+//  Private Definitions
+// --------------------------------------------------------------------------------------------------------------------------------
+
+inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den)
+{
+    const wyt_time_t whole = (val / den) * num;
+    const wyt_time_t fract = ((val % den) * num) / den;
+    return whole + fract;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+#ifdef _VC_NODEFAULTLIB
+inline static DWORD WINAPI wyt_thread_entry(void* args)
+#else
+inline static unsigned __stdcall wyt_thread_entry(void* args)
+#endif
+    /*
+     * https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
+     * https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapfree
+     */
+{
+    struct wyt_thread_args thunk = *(struct wyt_thread_args*)args;
+    
+    const HANDLE heap = GetProcessHeap();
+    WYT_ASSERT(heap != NULL);
+
+    const BOOL res = HeapFree(heap, 0, args);
+    WYT_ASSERT(res != FALSE);
+
+    thunk.func(thunk.arg);
+    return 0;
+}
 
 // ================================================================================================================================
 //  Public Definitions
@@ -222,41 +257,6 @@ extern wyt_tid_t wyt_current_tid(void)
 {
     const DWORD tid = GetCurrentThreadId();
     return (wyt_tid_t)tid;
-}
-
-// ================================================================================================================================
-//  Private Definitions
-// --------------------------------------------------------------------------------------------------------------------------------
-
-inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den)
-{
-    const wyt_time_t whole = (val / den) * num;
-    const wyt_time_t fract = ((val % den) * num) / den;
-    return whole + fract;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-#ifdef _VC_NODEFAULTLIB
-inline static DWORD WINAPI wyt_thread_entry(void* args)
-#else
-inline static unsigned __stdcall wyt_thread_entry(void* args)
-#endif
-    /*
-     * https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
-     * https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapfree
-     */
-{
-    struct wyt_thread_args thunk = *(struct wyt_thread_args*)args;
-    
-    const HANDLE heap = GetProcessHeap();
-    WYT_ASSERT(heap != NULL);
-
-    const BOOL res = HeapFree(heap, 0, args);
-    WYT_ASSERT(res != FALSE);
-
-    thunk.func(thunk.arg);
-    return 0;
 }
 
 // ================================================================================================================================

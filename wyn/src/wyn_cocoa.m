@@ -11,7 +11,7 @@
 #import <Cocoa/Cocoa.h>
 
 // ================================================================================================================================
-//  Macros
+//  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -20,7 +20,7 @@
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
 // ================================================================================================================================
-//  Declarations
+//  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -80,123 +80,6 @@ static void wyn_async_stop(void* arg);
  * @brief Runs the platform-native Event Loop.
  */
 static void wyn_run_native(void);
-
-// ================================================================================================================================
-//  Public Definitions
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html
- */
-extern void wyn_run(void* userdata)
-{
-    @autoreleasepool
-    {
-        if (wyn_init(userdata))
-        {
-            // wyn_on_start(userdata); // Will be called by NSApplicationDelegate.
-            wyn_run_native();
-            wyn_on_stop(userdata);
-        }
-        wyn_terminate();
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
- */
-extern void wyn_quit(void)
-{
-    [NSApp stop:nil];
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/3191902-dispatch_async_and_wait_f
- * @see https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
- */
-extern void wyn_execute(void (*func)(void *), void *arg)
-{
-    if ([NSThread isMainThread])
-    {
-        func(arg);
-    }
-    else
-    {
-        const dispatch_queue_main_t queue = dispatch_get_main_queue();
-        dispatch_async_and_wait_f(queue, arg, func);
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/1452834-dispatch_async_f
- */
-extern void wyn_execute_async(void (*func)(void *), void *arg)
-{
-    const dispatch_queue_main_t queue = dispatch_get_main_queue();
-    dispatch_async_f(queue, arg, func);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/objectivec/nsobject/1571958-alloc/
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419477-initwithcontentrect?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
- */
-extern wyn_window_t wyn_open_window(void)
-{
-    const NSRect rect = { .origin = { .x = 0.0, .y = 0.0 }, .size = { .width = 640.0, .height = 480.0 } };
-    const NSWindowStyleMask style = NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
-    NSWindow* const nsWnd = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
-    if (nsWnd)
-    {
-        [nsWnd setDelegate:wyn_state.delegate];
-        [nsWnd center];
-    }
-    return (wyn_window_t)nsWnd;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419288-performclose?language=objc
- */
-extern void wyn_close_window(wyn_window_t window)
-{
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd performClose:nil];
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
- */
-extern void wyn_show_window(wyn_window_t window)
-{
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd makeKeyAndOrderFront:nil];
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
- */
-extern void wyn_hide_window(wyn_window_t window)
-{
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd orderOut:nil];
-}
 
 // ================================================================================================================================
 //  Private Definitions
@@ -319,5 +202,122 @@ static void wyn_run_native(void)
 }
 
 @end
+
+// ================================================================================================================================
+//  Public Definitions
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html
+ */
+extern void wyn_run(void* userdata)
+{
+    @autoreleasepool
+    {
+        if (wyn_init(userdata))
+        {
+            // wyn_on_start(userdata); // Will be called by NSApplicationDelegate.
+            wyn_run_native();
+            wyn_on_stop(userdata);
+        }
+        wyn_terminate();
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
+ */
+extern void wyn_quit(void)
+{
+    [NSApp stop:nil];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * @see https://developer.apple.com/documentation/dispatch/3191902-dispatch_async_and_wait_f
+ * @see https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
+ */
+extern void wyn_execute(void (*func)(void *), void *arg)
+{
+    if ([NSThread isMainThread])
+    {
+        func(arg);
+    }
+    else
+    {
+        const dispatch_queue_main_t queue = dispatch_get_main_queue();
+        dispatch_async_and_wait_f(queue, arg, func);
+    }
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * @see https://developer.apple.com/documentation/dispatch/1452834-dispatch_async_f
+ */
+extern void wyn_execute_async(void (*func)(void *), void *arg)
+{
+    const dispatch_queue_main_t queue = dispatch_get_main_queue();
+    dispatch_async_f(queue, arg, func);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/objectivec/nsobject/1571958-alloc/
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419477-initwithcontentrect?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
+ */
+extern wyn_window_t wyn_open_window(void)
+{
+    const NSRect rect = { .origin = { .x = 0.0, .y = 0.0 }, .size = { .width = 640.0, .height = 480.0 } };
+    const NSWindowStyleMask style = NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
+    NSWindow* const nsWnd = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
+    if (nsWnd)
+    {
+        [nsWnd setDelegate:wyn_state.delegate];
+        [nsWnd center];
+    }
+    return (wyn_window_t)nsWnd;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419288-performclose?language=objc
+ */
+extern void wyn_close_window(wyn_window_t window)
+{
+    NSWindow* const nsWnd = (NSWindow*)window;
+    [nsWnd performClose:nil];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
+ */
+extern void wyn_show_window(wyn_window_t window)
+{
+    NSWindow* const nsWnd = (NSWindow*)window;
+    [nsWnd makeKeyAndOrderFront:nil];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
+ */
+extern void wyn_hide_window(wyn_window_t window)
+{
+    NSWindow* const nsWnd = (NSWindow*)window;
+    [nsWnd orderOut:nil];
+}
 
 // ================================================================================================================================
