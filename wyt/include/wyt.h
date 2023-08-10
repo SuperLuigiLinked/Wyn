@@ -1,21 +1,13 @@
-/*
-    Wyt.h
-*/
+/**
+ * @file wyt.h
+ *
+ * @brief Wyt: Cross-Platform Threading/Timing Library.
+ */
 
 #pragma once
 
 #ifndef WYT_H
-#define WYT_H 1
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/**
- *  WYT: Cross-Platform Threading/Timing Library.
- *
- *  All pointers/handles passed to functions must be NON-NULL, and all return values will be NON-NULL, unless otherwise specified.
- */
+#define WYT_H
 
 // ================================================================================================================================
 //  Macros
@@ -42,23 +34,23 @@ extern "C" {
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * Unsigned Integer capable of holding Timepoints.
+ * @brief Unsigned Integer capable of holding Timepoints.
  */
 typedef unsigned long long wyt_time_t;
 
 /**
- * Signed Integer capable of holding the difference between Timepoints.
+ * @brief Signed Integer capable of holding the difference between Timepoints.
  */
 typedef signed long long wyt_duration_t;
 
 /**
- * Handle to a Thread.
+ * @brief Handle to a Thread.
  */
 typedef void* wyt_thread_t;
 
 /**
- * Integer capable of holding a Thread Identifier.
- * A Thread ID is guaranteed to be unique at least as long as the thread is still running.
+ * @brief Integer capable of holding a Thread Identifier.
+ * @details A Thread ID is guaranteed to be unique at least as long as the thread is still running.
  */
 typedef unsigned long long wyt_tid_t;
 
@@ -66,62 +58,76 @@ typedef unsigned long long wyt_tid_t;
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
- * Returns a nanosecond timepoint (relative to an unspecified epoch) from a monotonic clock.
+ * @brief Gets a nanosecond timepoint (relative to an unspecified epoch) from a monotonic clock.
+ * @return The approximate timepoint the function was called at.
  */
 extern wyt_time_t wyt_nanotime(void);
 
 /**
- * Sleeps the current thread for at least `duration` nanoseconds.
+ * @brief Sleeps the current thread for at least `duration` nanoseconds.
+ * @details If the duration is less than or equal to 0, this function will return immediately.
+ * @param duration The duration to sleep for, based on the same clock as `wyt_nanotime`.
  */
 extern void wyt_nanosleep_for(wyt_duration_t duration);
 
 /**
- * Sleeps the current thread until at least `timepoint` has passed.
+ * @brief Sleeps the current thread until at least `timepoint` has passed.
+ * @details If the timepoint has already passed, this function will return immediately.
+ * @param timepoint The timepoint to sleep until, based on the same clock as `wyt_nanotime`.
  */
 extern void wyt_nanosleep_until(wyt_time_t timepoint);
 
 /**
- * Yields execution of the current thread temporarily.
+ * @brief Yields execution of the current thread temporarily.
  */
 extern void wyt_yield(void);
 
 /**
- * Attempts to spawn a new thread, which then passes the provided (potentially NULL) `arg` to the `func` function.
- * The thread handle must either be passed to `wyt_join` or `wyt_detach` in order to not leak resources.
- * This function will return NULL if it is unable to create a new thread.
+ * @brief Attempts to spawn a new thread.
+ * @param func [non-null] The start function to call on the new thread.
+ * @param arg  [nullable] The argument to pass to the thread's start function.
+ * @return [nullable] NON-NULL handle to the new thread on success, NULL on failure.
+ * @warning If successful, the returned thread handle must either be passed to `wyt_join` or `wyt_detach` in order to not leak resources.
  */
 extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg);
 
 /**
- * Terminates the current thread.
- * The effects are the same as returning from the thread's start function.
+ * @brief Terminates the current thread.
+ * @details The effects are the same as returning from the thread's start function.
  */
 WYT_NORETURN extern void wyt_exit(void);
 
 /**
- * Waits until the specified thread has terminated.
- * After calling this function, the thread handle is invalid and must not be used.
- * A thread must not attempt to join itself.
+ * @brief Waits until the specified thread has terminated.
+ * @param thread [non-null] A handle to the thread to join.
+ * @warning After calling this function, the thread handle is invalid and must not be used.
+ * @warning A thread must not attempt to join itself.
  */
 extern void wyt_join(wyt_thread_t thread);
 
 /**
- * Detaches the specified thread, allowing it to execute independently.
- * After calling this function, the thread handle is invalid and must not be used.
- * A thread must not attempt to detach itself.
+ * @brief Detaches the specified thread, allowing it to execute independently.
+ * @param thread [non-null] A handle to the thread to detach.
+ * @warning After calling this function, the thread handle is invalid and must not be used.
+ * @warning A thread must not attempt to detach itself.
  */
 extern void wyt_detach(wyt_thread_t thread);
 
 /**
- * Returns the Thread ID for the Current Thread.
+ * @brief Gets the Thread ID for the Current Thread.
+ * @return The Current Thread's ID.
  */
 extern wyt_tid_t wyt_current_tid(void);
-
-// ================================================================================================================================
 
 #ifdef __cplusplus
 }
 #endif
+
+// ================================================================================================================================
 
 #endif

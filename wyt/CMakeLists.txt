@@ -21,7 +21,7 @@ target_compile_features(wyt PRIVATE c_std_23)
 target_compile_options(wyt
     PRIVATE
         "-Weverything"
-        # "-Wno-c++98-compat"
+        "-Wno-c++98-compat"
         # "-Wno-c++17-extensions"
         "-Wno-pre-c2x-compat"
         "-Wno-declaration-after-statement"

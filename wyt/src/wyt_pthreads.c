@@ -1,6 +1,7 @@
-/*
-    Wyt - Pthreads.c
-*/
+/**
+ * @file wyt_pthreads.c
+ * @brief Implementation of Wyt for the Pthreads backend.
+ */
 
 #include "wyt.h"
 
@@ -20,9 +21,9 @@
 //  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/*
- * Linux: https://man7.org/linux/man-pages/man3/abort.3.html
- * Apple: https://www.manpagez.com/man/3/abort/
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/abort.3.html
+ * @see Apple: https://www.manpagez.com/man/3/abort/
  */
 #define WYT_ASSERT(expr) if (expr) {} else abort()
 
@@ -31,30 +32,32 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * Entry point for threads created by `wyt_spawn`.
- * Due to platform API differences, the user-provided function often cannot be called directly.
- * This function acts as a wrapper to unify the different function signatures between platforms.
+ * @brief Entry point for threads created by `wyt_spawn`.
+ * @details Due to platform API differences, the user-provided function often cannot be called directly.
+ *          This function acts as a wrapper to unify the different function signatures between platforms.
+ * @param args [non-null] Pointer to `wyt_thread_args`.
+ * @return Unused.
  */
 inline static void* wyt_thread_entry(void* args);
 
 /**
- * Contains all the state necessary to pass arguments to a newly spawned thread in a thread-safe way.
+ * @brief Contains all the state necessary to pass arguments to a newly spawned thread in a thread-safe way.
  */
 struct wyt_thread_args
 {
-    void (*func)(void*);
-    void* arg;
+    void (*func)(void*);    ///< The thread's start function.
+    void* arg;              ///< The argument to pass to the start function.
 };
 
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/free.3.html
+ * @see Apple: https://www.manpagez.com/man/3/free/
+ */
 inline static void* wyt_thread_entry(void* args)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/free.3.html
-     * Apple: https://www.manpagez.com/man/3/free/
-     */
 {
     struct wyt_thread_args thunk = *(struct wyt_thread_args*)args;
     
@@ -68,11 +71,11 @@ inline static void* wyt_thread_entry(void* args)
 //  Public Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/clock_gettime.3.html
+ * @see Apple: https://www.manpagez.com/man/3/clock_gettime_nsec_np/
+ */
 extern wyt_time_t wyt_nanotime(void)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/clock_gettime.3.html
-     * Apple: https://www.manpagez.com/man/3/clock_gettime_nsec_np/
-     */
 {
 #ifdef __APPLE__
     const uint64_t res = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
@@ -90,10 +93,10 @@ extern wyt_time_t wyt_nanotime(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Apple: https://www.manpagez.com/man/2/nanosleep/
+ */
 extern void wyt_nanosleep_for(wyt_duration_t duration)
-    /*
-     * Apple: https://www.manpagez.com/man/2/nanosleep/
-     */
 {
     if (duration <= 0) return;
 
@@ -116,10 +119,10 @@ extern void wyt_nanosleep_for(wyt_duration_t duration)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man2/clock_nanosleep.2.html
+ */
 extern void wyt_nanosleep_until(wyt_time_t timepoint)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man2/clock_nanosleep.2.html
-     */
 {
 #ifdef __APPLE__
     wyt_nanosleep_for((wyt_duration_t)(timepoint - wyt_nanotime()));
@@ -140,25 +143,24 @@ extern void wyt_nanosleep_until(wyt_time_t timepoint)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man2/sched_yield.2.html
+ * @see Posix: https://man7.org/linux/man-pages/man3/sched_yield.3p.html
+ */
 extern void wyt_yield(void)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man2/sched_yield.2.html
-     * POSIX: https://man7.org/linux/man-pages/man3/sched_yield.3p.html
-     */
 {
-    const int res = sched_yield();
-    (void)res;
+    [[maybe_unused]] const int res = sched_yield();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/malloc.3.html
+ * @see Linux: https://man7.org/linux/man-pages/man3/pthread_create.3.html
+ * @see Apple: https://www.manpagez.com/man/3/malloc/
+ * @see Apple: https://www.manpagez.com/man/3/pthread_create/
+ */
 extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/malloc.3.html
-     *      : https://man7.org/linux/man-pages/man3/pthread_create.3.html
-     * Apple: https://www.manpagez.com/man/3/malloc/
-     *      : https://www.manpagez.com/man/3/pthread_create/
-     */
 {
     struct wyt_thread_args* thread_args = malloc(sizeof(struct wyt_thread_args));
     if (thread_args == NULL) return NULL;
@@ -180,22 +182,22 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/pthread_exit.3.html
+ * @see Apple: https://www.manpagez.com/man/3/pthread_exit/
+ */
 WYT_NORETURN extern void wyt_exit(void)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/pthread_exit.3.html
-     * Apple: https://www.manpagez.com/man/3/pthread_exit/
-     */
 {
     pthread_exit(NULL);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/pthread_join.3.html
+ * @see Apple: https://www.manpagez.com/man/3/pthread_join/
+ */
 extern void wyt_join(wyt_thread_t thread)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/pthread_join.3.html
-     * Apple: https://www.manpagez.com/man/3/pthread_join/
-     */
 {
     const int res = pthread_join((pthread_t)thread, NULL);
     WYT_ASSERT(res == 0);
@@ -203,11 +205,11 @@ extern void wyt_join(wyt_thread_t thread)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man3/pthread_detach.3.html
+ * @see Apple: https://www.manpagez.com/man/3/pthread_detach/
+ */
 extern void wyt_detach(wyt_thread_t thread)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man3/pthread_detach.3.html
-     * Apple: https://www.manpagez.com/man/3/pthread_detach/
-     */
 {
     const int res = pthread_detach((pthread_t)thread);
     WYT_ASSERT(res == 0);
@@ -215,11 +217,11 @@ extern void wyt_detach(wyt_thread_t thread)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
+ * @see Apple: https://www.manpagez.com/man/3/pthread_threadid_np/
+ */
 extern wyt_tid_t wyt_current_tid(void)
-    /*
-     * Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
-     * Apple: https://www.manpagez.com/man/3/pthread_threadid_np/
-     */
 {
 #ifdef __APPLE__
     uint64_t tid;
