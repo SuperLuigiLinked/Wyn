@@ -56,6 +56,7 @@ static void print_tid(void* label)
     fprintf(stderr, "[TID %s] %llu\t\t(%llu)\n", (const char*)label, tid, tp);
 }
 
+[[maybe_unused]]
 static void quit_async(void*)
 {
     wyn_quit();
