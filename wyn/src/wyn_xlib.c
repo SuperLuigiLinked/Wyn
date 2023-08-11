@@ -31,6 +31,9 @@
  */
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
+/**
+ * @see https://en.cppreference.com/w/c/io/fprintf
+ */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
 // ================================================================================================================================
@@ -426,7 +429,7 @@ static const char* wyn_xevent_name(int type)
  */
 static int wyn_xlib_error_handler(Display* display [[maybe_unused]], XErrorEvent* error)
 {
-    fprintf(stderr, "[XLIB ERROR] <%d> %hhu (%hhu.%hhu)\n",
+    WYN_LOG("[XLIB ERROR] <%d> %hhu (%hhu.%hhu)\n",
         error->type, error->error_code, error->request_code, error->minor_code
     );
     return 0;
@@ -439,7 +442,7 @@ static int wyn_xlib_error_handler(Display* display [[maybe_unused]], XErrorEvent
  */
 static int wyn_xlib_io_error_handler(Display* display [[maybe_unused]])
 {
-    fputs("[XLIB IO ERROR]\n", stderr);
+    WYN_LOG("[XLIB IO ERROR]\n");
     return 0;
 }
 
@@ -450,7 +453,7 @@ static int wyn_xlib_io_error_handler(Display* display [[maybe_unused]])
  */
 static void wyn_xlib_io_error_exit_handler(Display* display [[maybe_unused]], void* userdata [[maybe_unused]])
 {
-    fputs("[XLIB IO ERROR EXIT]\n", stderr);
+    WYN_LOG("[XLIB IO ERROR EXIT]\n");
     wyn_quit();
 }
 

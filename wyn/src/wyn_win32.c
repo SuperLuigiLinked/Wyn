@@ -27,6 +27,11 @@
     #define WYN_ASSERT(expr) if (expr) {} else abort()
 #endif
 
+/**
+ * @see https://en.cppreference.com/w/c/io/fprintf
+ */
+#define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
+
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -298,13 +303,13 @@ static void wyn_run_native(void)
  */
 static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    //fprintf(stderr, "[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
+    //WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
 
     switch (uMsg)
     {
         case WM_CLOSE:
         {
-            fputs("[MSG HWND] CLOSED!\n", stderr);
+            WYN_LOG("[MSG HWND] CLOSED!\n");
             PostQuitMessage(1);
             return 0;
         }
@@ -328,7 +333,7 @@ static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
  */
 static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    //fprintf(stderr, "[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
+    //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
 
     const wyn_window_t window = (wyn_window_t)hWnd;
 

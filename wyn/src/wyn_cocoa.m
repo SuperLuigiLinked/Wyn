@@ -19,6 +19,13 @@
  */
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
+/**
+ * @see https://en.cppreference.com/w/c/io/fprintf
+ */
+#define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
+
+// #define WYN_LOG_OBJC
+
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -74,7 +81,7 @@ static void wyn_async_close(void* arg);
  * @brief Stops the running NSApplication.
  * @param[in] arg [unused]
  */
-static void wyn_async_stop(void* arg);
+static void wyn_async_quit(void* arg);
 
 /**
  * @brief Runs the platform-native Event Loop.
@@ -100,6 +107,7 @@ static bool wyn_init(void* userdata)
     };
     
     [NSApplication sharedApplication];
+    [NSApp activateIgnoringOtherApps:YES];
 
     wyn_state.delegate = [[wyn_delegate_t new] autorelease];
     if (wyn_state.delegate == NULL) return false;
@@ -114,18 +122,18 @@ static bool wyn_init(void* userdata)
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
  * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
  * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
+ * @bug Newly added exec-callbacks may be missed.
  */
 static void wyn_terminate(void)
 {
     wyn_state.clearing_events = true;
 
-    wyn_execute_async(wyn_async_close, nil);
-    wyn_execute_async(wyn_async_stop, nil);
-    
-    [NSEvent stopPeriodicEvents];
-    [NSEvent startPeriodicEventsAfterDelay:0.0 withPeriod:0.1];
+    wyn_execute_async(wyn_async_quit, nil);
     [NSApp run];
     [NSEvent stopPeriodicEvents];
+
+    wyn_execute_async(wyn_async_close, nil);
+    [NSApp setDelegate:nil];
     
     wyn_state.clearing_events = false;
 }
@@ -148,9 +156,9 @@ static void wyn_async_close(void* arg [[maybe_unused]])
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
  */
-static void wyn_async_stop(void* arg [[maybe_unused]])
+static void wyn_async_quit(void* arg [[maybe_unused]])
 {
-    [NSApp stop:nil];
+    wyn_quit();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -167,26 +175,22 @@ static void wyn_run_native(void)
 
 @implementation wyn_delegate_t
 
-/**
- * @see https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428385-applicationdidfinishlaunching?language=objc
- */
-- (void)applicationDidFinishLaunching:(NSNotification*)notification
+#ifdef WYN_LOG_OBJC
++ (BOOL)resolveInstanceMethod:(SEL)sel
 {
-    if (!wyn_state.clearing_events)
-    {
-        wyn_on_start(wyn_state.userdata);
-    }
+    WYN_LOG("[OBJC] %s\n", sel_getName(sel));
+    return [super resolveInstanceMethod:sel];
 }
+#endif
 
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428642-applicationshouldterminate?language=objc
  */
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender
 {
-    if (!wyn_state.clearing_events)
-    {
-        wyn_quit();
-    }
+    WYN_LOG("[OBJC] applicationShouldTerminate:\n");
+
+    wyn_quit();
     return NSTerminateCancel;
 }
 
@@ -203,6 +207,31 @@ static void wyn_run_native(void)
 
 @end
 
+// --------------------------------------------------------------------------------------------------------------------------------
+
+#ifdef WYN_LOG_OBJC
+#include <dlfcn.h>
+
+[[maybe_unused]]
+static void wyn_objc_log_toggle(const BOOL toggle)
+{
+    typedef void (*FP_instrumentObjcMessageSends)(BOOL);
+    static FP_instrumentObjcMessageSends fp_instrumentObjcMessageSends = 0;
+    
+    if (fp_instrumentObjcMessageSends == 0)
+    {
+        void* dl_libobjc = dlopen("/usr/lib/libobjc.dylib", RTLD_LAZY);
+        WYN_ASSERT(dl_libobjc != 0);
+
+        fp_instrumentObjcMessageSends = (FP_instrumentObjcMessageSends)dlsym(dl_libobjc, "instrumentObjcMessageSends");
+        WYN_ASSERT(fp_instrumentObjcMessageSends != 0);
+    }
+
+    fp_instrumentObjcMessageSends(toggle);
+    NSLog(@"[OBJC] LOGGING (%d)\n", (int)toggle);
+}
+#endif
+
 // ================================================================================================================================
 //  Public Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -214,13 +243,21 @@ extern void wyn_run(void* userdata)
 {
     @autoreleasepool
     {
+    #ifdef WYN_LOG_OBJC
+        wyn_objc_log_toggle(TRUE);
+    #endif
+
         if (wyn_init(userdata))
         {
-            // wyn_on_start(userdata); // Will be called by NSApplicationDelegate.
+            wyn_on_start(userdata);
             wyn_run_native();
             wyn_on_stop(userdata);
         }
         wyn_terminate();
+
+    #ifdef WYN_LOG_OBJC
+        wyn_objc_log_toggle(FALSE);
+    #endif
     }
 }
 
@@ -232,6 +269,9 @@ extern void wyn_run(void* userdata)
 extern void wyn_quit(void)
 {
     [NSApp stop:nil];
+
+    [NSEvent stopPeriodicEvents];
+    [NSEvent startPeriodicEventsAfterDelay:0.0 withPeriod:0.1];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

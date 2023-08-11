@@ -22,10 +22,14 @@ target_compile_options(wyt
     PRIVATE
         "-Weverything"
         "-Wno-c++98-compat"
-        # "-Wno-c++17-extensions"
+        "-Wno-c++17-extensions"
         "-Wno-pre-c2x-compat"
+        "-Wno-fixed-enum-extension"
         "-Wno-declaration-after-statement"
-        # "-Wno-gnu-empty-initializer"
+        "-Wno-gnu-empty-initializer"
+        "-Wno-unsafe-buffer-usage"
+        "-Wno-unused-macros"
+        "-Wno-padded"
 )
 
 # ================================================================ #
