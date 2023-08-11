@@ -10,12 +10,6 @@
 
 // ================================================================================================================================
 
-struct AppState
-{
-    wyt_thread_t thread;
-    wyn_window_t window;
-};
-
 #define ASSERT(expr) if (expr) {} else abort()
 
 #define LOG(...) (void)fprintf(stderr, __VA_ARGS__)
@@ -24,36 +18,11 @@ struct AppState
 
 // ================================================================================================================================
 
-static void print_ids(void)
+struct AppState
 {
-    const wyt_pid_t pid = wyt_pid();
-    const wyt_tid_t tid = wyt_tid();
-    LOG("[PID] %llu | [TID] %llu\n", (unsigned long long)pid, (unsigned long long)tid);
-}
-
-static wyt_retval_t WYT_ENTRY thread_func(void* arg [[maybe_unused]])
-{
-    print_ids();
-    return 0;
-}
-
-static void test_threads(void)
-{
-    print_ids();
-
-    const wyt_time_t t1 = wyt_nanotime();
-    const wyt_thread_t thread = wyt_spawn(thread_func, NULL);
-    const wyt_time_t t2 = wyt_nanotime();
-
-    const wyt_time_t t3 = wyt_nanotime();
-    if (thread) wyt_join(thread);
-    const wyt_time_t t4 = wyt_nanotime();
-
-    const wyt_duration_t e1 = (wyt_duration_t)(t2 - t1);
-    const wyt_duration_t e2 = (wyt_duration_t)(t4 - t3);
-    LOG("[E1] %lld ns\n", e1);
-    LOG("[E2] %lld ns\n", e2);
-}
+    wyt_thread_t thread;
+    wyn_window_t window;
+};
 
 // ================================================================================================================================
 
@@ -63,7 +32,15 @@ static void quit_async(void*)
     wyn_quit();
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------
+static wyt_retval_t WYT_ENTRY thread_func(void* arg)
+{
+    [[maybe_unused]] struct AppState* const state = arg;
+
+    //wyn_execute_async(quit_async, NULL);
+    return 0;
+}
+
+// ================================================================================================================================
 
 extern void wyn_on_start(void* userdata)
 {
@@ -76,8 +53,8 @@ extern void wyn_on_start(void* userdata)
     if (!state->window) { wyn_quit(); return; }
     wyn_show_window(state->window);
 
-    // state->thread = wyt_spawn(thread_func, userdata);
-    // if (!state->thread) { wyn_quit(); return; }
+    state->thread = wyt_spawn(thread_func, userdata);
+    if (!state->thread) { wyn_quit(); return; }
 }
 
 extern void wyn_on_stop(void* userdata)
@@ -128,19 +105,28 @@ int WINAPI wWinMain
 int main(void)
 #endif
 {
-    test_threads();
+    {
+        struct AppState state = {
+            .thread = NULL,
+            .window = NULL,
+        };
+
+        LOG("[START]\n");
+        wyn_run(&state);
+        LOG("[STOP]\n");
+    }
+    LOG("\n");
+    {
+        struct AppState state = {
+            .thread = NULL,
+            .window = NULL,
+        };
+
+        LOG("[START]\n");
+        wyn_run(&state);
+        LOG("[STOP]\n");
+    }
     return 0;
-
-    // struct AppState state = {
-    //     .thread = NULL,
-    //     .window = NULL,
-    // };
-
-    // fputs("[START]\n", stderr);
-    // wyn_run(&state);
-    // fputs("[STOP]\n", stderr);
-
-    // return 0;
 }
 
 // ================================================================================================================================

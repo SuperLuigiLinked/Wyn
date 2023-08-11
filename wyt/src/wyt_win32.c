@@ -139,10 +139,11 @@ extern void wyt_yield(void)
 extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 {
 #ifdef _VC_NODEFAULTLIB
-    return (wyt_thread_t)CreateThread(NULL, 0, func, arg, 0, NULL);
+    const HANDLE handle = CreateThread(NULL, 0, func, arg, 0, NULL);
 #else
-    return (wyt_thread_t)_beginthreadex(NULL, 0, func, arg, 0, NULL);
+    const uintptr_t handle = _beginthreadex(NULL, 0, func, arg, 0, NULL);
 #endif
+    return (wyt_thread_t)handle;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
