@@ -1,28 +1,36 @@
-# @file wyt/CMakeLists.txt
+# @file wyg/CMakeLists.txt
 
 # ================================================================================================================================
 
-add_library(wyt)
-add_library(wyn::wyt ALIAS wyt)
+set(WYG_USE_GL ON CACHE BOOL "Controls whether or not OpenGL is available.")
 
 # ================================================================================================================================
 
-target_include_directories(wyt PUBLIC "include/")
-target_sources(wyt PUBLIC "include/wyt.h")
+add_library(wyg)
+add_library(wyn::wyg ALIAS wyg)
 
-if (WIN32)
-    target_sources(wyt PRIVATE "src/wyt_win32.c")
-    target_link_libraries(wyt PRIVATE "kernel32" "winmm" "synchronization")
-elseif (UNIX)
-    target_sources(wyt PRIVATE "src/wyt_pthreads.c")
-    target_link_libraries(wyt "pthread")
+# ================================================================================================================================
+
+target_include_directories(wyg PUBLIC "include/")
+
+if (WYG_USE_GL)
+    target_sources(wyg PUBLIC "include/wyg_gl.h")
+
+    if (WIN32)
+        target_sources(wyg PRIVATE "src/gl/wyg_wgl.c")
+    elseif (APPLE)
+        target_sources(wyg PRIVATE "src/gl/wyg_nsgl.m")
+    elseif (UNIX)
+        target_sources(wyg PRIVATE "src/gl/wyg_glx.c")
+        # target_sources(wyg PRIVATE "src/gl/wyg_egl.c")
+    endif()
 endif()
 
 # ================================================================================================================================
 
-target_compile_features(wyt PRIVATE c_std_23)
+target_compile_features(wyg PRIVATE c_std_23)
 
-target_compile_options(wyt
+target_compile_options(wyg
     PRIVATE
         "-Weverything"
         "-Wno-c++98-compat"
@@ -36,7 +44,7 @@ target_compile_options(wyt
 )
 
 if (NOT WIN32)
-    target_compile_options(wyt PRIVATE "-Wno-unsafe-buffer-usage")
+    target_compile_options(wyg PRIVATE "-Wno-unsafe-buffer-usage")
 endif()
 
 # ================================================================================================================================

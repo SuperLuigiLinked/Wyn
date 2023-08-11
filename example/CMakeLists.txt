@@ -1,12 +1,28 @@
+# @file wyn_example/CMakeLists.txt
+
+# ================================================================================================================================
+
+set(WYN_EXAMPLE_GL ON CACHE BOOL "Controls whether or not Wyn-Example uses OpenGL.")
+
+# ================================================================================================================================
+
 add_executable(wyn_example MACOSX_BUNDLE)
 add_executable(wyn::example ALIAS wyn_example)
 
-# ================================================================ #
+# ================================================================================================================================
 
-target_sources(wyn_example PRIVATE "main.c" "test.cpp")
-target_link_libraries(wyn_example wyn::wyn wyn::wyt)
+target_sources(wyn_example
+    PRIVATE
+        "src/main.c"
+        "src/test.cpp"
+)
+target_link_libraries(wyn_example wyn::wyn wyn::wyt wyn::wyg)
 
-# ================================================================ #
+if (WYN_EXAMPLE_GL)
+    target_sources(wyn_example PRIVATE "src/gfx_gl.c")
+endif()
+
+# ================================================================================================================================
 
 target_compile_features(wyn_example PRIVATE c_std_23)
 target_compile_features(wyn_example PRIVATE cxx_std_23)
@@ -20,9 +36,12 @@ target_compile_options(wyn_example
         "-Wno-fixed-enum-extension"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
-        "-Wno-unsafe-buffer-usage"
         "-Wno-unused-macros"
         "-Wno-padded"
 )
 
-# ================================================================ #
+if (NOT WIN32)
+    target_compile_options(wyn_example PRIVATE "-Wno-unsafe-buffer-usage")
+endif()
+
+# ================================================================================================================================
