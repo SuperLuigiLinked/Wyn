@@ -54,28 +54,6 @@
  */
 inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den);
 
-/**
- * @brief Entry point for threads created by `wyt_spawn`.
- * @details Due to platform API differences, the user-provided function often cannot be called directly.
- *          This function acts as a wrapper to unify the different function signatures between platforms.
- * @param args [non-null] Pointer to `wyt_thread_args`.
- * @return Unused.
- */
-#ifdef _VC_NODEFAULTLIB
-inline static DWORD WINAPI wyt_thread_entry(void* args);
-#else
-inline static unsigned __stdcall wyt_thread_entry(void* args);
-#endif
-
-/**
- * @brief Contains all the state necessary to pass arguments to a newly spawned thread in a thread-safe way.
- */
-struct wyt_thread_args
-{
-    void (*func)(void*);    ///< The thread's start function.
-    void* arg;              ///< The argument to pass to the start function.
-};
-
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -85,30 +63,6 @@ inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, c
     const wyt_time_t whole = (val / den) * num;
     const wyt_time_t fract = ((val % den) * num) / den;
     return whole + fract;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
- * @see https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapfree
- */
-#ifdef _VC_NODEFAULTLIB
-inline static DWORD WINAPI wyt_thread_entry(void* args)
-#else
-inline static unsigned __stdcall wyt_thread_entry(void* args)
-#endif
-{
-    struct wyt_thread_args thunk = *(struct wyt_thread_args*)args;
-    
-    const HANDLE heap = GetProcessHeap();
-    WYT_ASSERT(heap != NULL);
-
-    const BOOL res = HeapFree(heap, 0, args);
-    WYT_ASSERT(res != FALSE);
-
-    thunk.func(thunk.arg);
-    return 0;
 }
 
 // ================================================================================================================================
@@ -182,26 +136,13 @@ extern void wyt_yield(void)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
  * @see https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc
  */
-extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
+extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 {
-    const HANDLE heap = GetProcessHeap();
-    if (heap == NULL) return NULL;
-
-    struct wyt_thread_args* thread_args = HeapAlloc(heap, 0, sizeof(struct wyt_thread_args));
-    if (thread_args == NULL) return NULL;
-
-    *thread_args = (struct wyt_thread_args){
-        .func = func,
-        .arg = arg,
-    };
-
 #ifdef _VC_NODEFAULTLIB
-    const HANDLE handle = CreateThread(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
+    return (wyt_thread_t)CreateThread(NULL, 0, func, arg, 0, NULL);
 #else
-    const uintptr_t handle = _beginthreadex(NULL, 0, wyt_thread_entry, thread_args, 0, NULL);
+    return (wyt_thread_t)_beginthreadex(NULL, 0, func, arg, 0, NULL);
 #endif
-
-    return (wyt_thread_t)handle;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -210,12 +151,12 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitthread
  * @see https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/endthread-endthreadex
  */
-WYT_NORETURN extern void wyt_exit(void)
+WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
 {
 #ifdef _VC_NODEFAULTLIB
-    ExitThread(0);
+    ExitThread(retval);
 #else
-    _endthreadex(0);
+    _endthreadex(retval);
 #endif
 
     WYT_UNREACHABLE();
@@ -225,17 +166,24 @@ WYT_NORETURN extern void wyt_exit(void)
 
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodethread
  * @see https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
  */
-extern void wyt_join(wyt_thread_t thread)
+extern wyt_retval_t wyt_join(wyt_thread_t thread)
 {
     const HANDLE handle = (HANDLE)thread;
 
-    const DWORD obj = WaitForSingleObject(handle, INFINITE);
-    WYT_ASSERT(obj == WAIT_OBJECT_0);
+    const DWORD res_wait = WaitForSingleObject(handle, INFINITE);
+    WYT_ASSERT(res_wait == WAIT_OBJECT_0);
 
-    const BOOL res = CloseHandle(handle);
-    WYT_ASSERT(res != FALSE);
+    DWORD retval;
+    const BOOL res_exit = GetExitCodeThread(handle, &retval);
+    WYT_ASSERT(res_exit != 0);
+
+    const BOOL res_close = CloseHandle(handle);
+    WYT_ASSERT(res_close != 0);
+
+    return (wyt_retval_t)retval;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -256,10 +204,19 @@ extern void wyt_detach(wyt_thread_t thread)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
  */
-extern wyt_tid_t wyt_current_tid(void)
+extern wyt_tid_t wyt_tid(void)
 {
-    const DWORD tid = GetCurrentThreadId();
-    return (wyt_tid_t)tid;
+    return (wyt_tid_t)GetCurrentThreadId();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocessid
+ */
+extern wyt_pid_t wyt_pid(void)
+{
+    return (wyt_pid_t)GetCurrentProcessId();
 }
 
 // ================================================================================================================================

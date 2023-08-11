@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/types.h>
 
 // ================================================================================================================================
 //  Private Macros
@@ -31,41 +32,9 @@
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @brief Entry point for threads created by `wyt_spawn`.
- * @details Due to platform API differences, the user-provided function often cannot be called directly.
- *          This function acts as a wrapper to unify the different function signatures between platforms.
- * @param args [non-null] Pointer to `wyt_thread_args`.
- * @return Unused.
- */
-inline static void* wyt_thread_entry(void* args);
-
-/**
- * @brief Contains all the state necessary to pass arguments to a newly spawned thread in a thread-safe way.
- */
-struct wyt_thread_args
-{
-    void (*func)(void*);    ///< The thread's start function.
-    void* arg;              ///< The argument to pass to the start function.
-};
-
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Linux: https://man7.org/linux/man-pages/man3/free.3.html
- * @see Apple: https://www.manpagez.com/man/3/free/
- */
-inline static void* wyt_thread_entry(void* args)
-{
-    struct wyt_thread_args thunk = *(struct wyt_thread_args*)args;
-    
-    free(args);
-
-    thunk.func(thunk.arg);
-    return NULL;
-}
 
 // ================================================================================================================================
 //  Public Definitions
@@ -155,23 +124,13 @@ extern void wyt_yield(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/malloc.3.html
  * @see Linux: https://man7.org/linux/man-pages/man3/pthread_create.3.html
- * @see Apple: https://www.manpagez.com/man/3/malloc/
  * @see Apple: https://www.manpagez.com/man/3/pthread_create/
  */
-extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
+extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 {
-    struct wyt_thread_args* thread_args = malloc(sizeof(struct wyt_thread_args));
-    if (thread_args == NULL) return NULL;
-
-    *thread_args = (struct wyt_thread_args){
-        .func = func,
-        .arg = arg,
-    };
-
     pthread_t thread;
-    const int res = pthread_create(&thread, NULL, wyt_thread_entry, thread_args);
+    const int res = pthread_create(&thread, NULL, func, arg);
     if (res != 0) return NULL;
 
     // Assumes `pthread_t` is an integer/pointer.
@@ -186,9 +145,9 @@ extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg)
  * @see Linux: https://man7.org/linux/man-pages/man3/pthread_exit.3.html
  * @see Apple: https://www.manpagez.com/man/3/pthread_exit/
  */
-WYT_NORETURN extern void wyt_exit(void)
+WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
 {
-    pthread_exit(NULL);
+    pthread_exit(retval);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -197,10 +156,12 @@ WYT_NORETURN extern void wyt_exit(void)
  * @see Linux: https://man7.org/linux/man-pages/man3/pthread_join.3.html
  * @see Apple: https://www.manpagez.com/man/3/pthread_join/
  */
-extern void wyt_join(wyt_thread_t thread)
+extern wyt_retval_t wyt_join(wyt_thread_t thread)
 {
-    const int res = pthread_join((pthread_t)thread, NULL);
+    wyt_retval_t retval;
+    const int res = pthread_join((pthread_t)thread, &retval);
     WYT_ASSERT(res == 0);
+    return retval;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -221,7 +182,7 @@ extern void wyt_detach(wyt_thread_t thread)
  * @see Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
  * @see Apple: https://www.manpagez.com/man/3/pthread_threadid_np/
  */
-extern wyt_tid_t wyt_current_tid(void)
+extern wyt_tid_t wyt_tid(void)
 {
 #ifdef __APPLE__
     uint64_t tid;
@@ -231,6 +192,13 @@ extern wyt_tid_t wyt_current_tid(void)
     const pid_t tid = gettid();
 #endif
     return (wyt_tid_t)tid;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyt_pid_t wyt_pid(void)
+{
+    return (wyt_pid_t)getpid();   
 }
 
 // ================================================================================================================================

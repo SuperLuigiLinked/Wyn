@@ -54,6 +54,57 @@ typedef void* wyt_thread_t;
  */
 typedef unsigned long long wyt_tid_t;
 
+/**
+ * @brief Integer capable of holding a Process Identifier.
+ * @details A Process ID is guaranteed to be unique at least as long as the process is still running.
+ */
+typedef unsigned long long wyt_pid_t;
+
+#ifdef _WIN32
+    #ifdef _VC_NODEFAULTLIB
+        /**
+         * @brief Return Value type for Wyt Threads.
+         * @details Guaranteed to be either an Integer or a Pointer.
+         * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
+         */
+        typedef unsigned long wyt_retval_t;
+
+        /**
+         * @brief Calling Convention for Wyt Threads.
+         */
+        #define WYT_ENTRY __stdcall
+    #else
+        /**
+         * @brief Return Value type for Wyt Threads.
+         * @details Guaranteed to be either an Integer or a Pointer.
+         * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
+         */
+        typedef unsigned int wyt_retval_t;
+
+        /**
+         * @brief Calling Convention for Wyt Threads.
+         */
+        #define WYT_ENTRY __stdcall
+    #endif
+#else
+    /**
+     * @brief Return Value type for Wyt Threads.
+     * @details Guaranteed to be either an Integer or a Pointer.
+     * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
+     */
+    typedef void* wyt_retval_t;
+
+    /**
+     * @brief Calling Convention for Wyt Threads.
+     */
+    #define WYT_ENTRY /* __cdecl */
+#endif
+
+/**
+ * @brief Pointer to a callback function that can serve as an Entry-Point for Wyt Threads.
+ */
+typedef wyt_retval_t (WYT_ENTRY* wyt_entry_t)(void*);
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -89,26 +140,28 @@ extern void wyt_yield(void);
 
 /**
  * @brief Attempts to spawn a new thread.
- * @param func [non-null] The start function to call on the new thread.
- * @param arg  [nullable] The argument to pass to the thread's start function.
+ * @param func [non-null] The entry-function to call on the new thread.
+ * @param arg  [nullable] The argument to pass to the thread's entry-function.
  * @return [nullable] NON-NULL handle to the new thread on success, NULL on failure.
  * @warning If successful, the returned thread handle must either be passed to `wyt_join` or `wyt_detach` in order to not leak resources.
  */
-extern wyt_thread_t wyt_spawn(void (*func)(void*), void* arg);
+extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg);
 
 /**
  * @brief Terminates the current thread.
- * @details The effects are the same as returning from the thread's start function.
+ * @details The effects are the same as returning from the thread's entry-function.
+ * @param retval The value to return to `wyn_join`.
  */
-WYT_NORETURN extern void wyt_exit(void);
+WYT_NORETURN extern void wyt_exit(wyt_retval_t retval);
 
 /**
  * @brief Waits until the specified thread has terminated.
  * @param thread [non-null] A handle to the thread to join.
+ * @return The value returned by the thread.
  * @warning After calling this function, the thread handle is invalid and must not be used.
  * @warning A thread must not attempt to join itself.
  */
-extern void wyt_join(wyt_thread_t thread);
+extern wyt_retval_t wyt_join(wyt_thread_t thread);
 
 /**
  * @brief Detaches the specified thread, allowing it to execute independently.
@@ -122,7 +175,13 @@ extern void wyt_detach(wyt_thread_t thread);
  * @brief Gets the Thread ID for the Current Thread.
  * @return The Current Thread's ID.
  */
-extern wyt_tid_t wyt_current_tid(void);
+extern wyt_tid_t wyt_tid(void);
+
+/**
+ * @brief Gets the Process ID for the Current Process.
+ * @return The Current Process's ID.
+ */
+extern wyt_pid_t wyt_pid(void);
 
 #ifdef __cplusplus
 }
