@@ -41,6 +41,7 @@ target_compile_options(wyn
         "-Wno-c++17-extensions"
         "-Wno-pre-c2x-compat"
         "-Wno-fixed-enum-extension"
+        "-Wno-microsoft-fixed-enum"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
         "-Wno-unused-macros"

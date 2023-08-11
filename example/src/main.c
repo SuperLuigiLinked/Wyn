@@ -21,7 +21,7 @@ extern void wyn_on_start(void* userdata)
     if (!state->window) { wyn_quit(); return; }
     wyn_show_window(state->window);
 
-    state->thread = wyt_spawn(gfx_func, userdata);
+    state->thread = wyt_spawn(app_gfx_func, userdata);
     if (!state->thread) { wyn_quit(); return; }
 }
 
@@ -33,6 +33,8 @@ extern void wyn_on_stop(void* userdata)
 
     struct AppState* state = (struct AppState*)userdata;
     ASSERT(state != NULL);
+
+    app_quit(state);
 
     if (state->thread)
     {
@@ -58,7 +60,14 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window)
 
     if (state->window == window)
     {
-        wyn_quit();
+        app_quit(state);
+
+        if (state->thread)
+        {
+            wyt_join(state->thread);
+            state->thread = NULL;
+        }
+
         state->window = NULL;
     }    
 }
@@ -78,6 +87,7 @@ int main(void)
 #endif
 {
     struct AppState state = {
+        .quit_flag = false,
         .thread = NULL,
         .window = NULL,
     };
