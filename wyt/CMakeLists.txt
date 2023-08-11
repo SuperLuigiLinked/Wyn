@@ -35,8 +35,4 @@ target_compile_options(wyt
         "-Wno-padded"
 )
 
-if (NOT WIN32)
-    target_compile_options(wyt PRIVATE "-Wno-unsafe-buffer-usage")
-endif()
-
 # ================================================================================================================================
