@@ -46,24 +46,9 @@
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @brief Scales an Unsigned Integer `val` by a Fraction `num / den`.
- * @details Assumes:
- *            - `(den - 1) * num` does not overflow
- *            - `den != 0`
- */
-inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den);
-
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
-
-inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den)
-{
-    const wyt_time_t whole = (val / den) * num;
-    const wyt_time_t fract = ((val % den) * num) / den;
-    return whole + fract;
-}
 
 // ================================================================================================================================
 //  Public Definitions

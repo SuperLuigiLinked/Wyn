@@ -183,6 +183,20 @@ extern wyt_tid_t wyt_tid(void);
  */
 extern wyt_pid_t wyt_pid(void);
 
+/**
+ * @brief Scales an Unsigned Integer `val` by a Fraction `num / den`.
+ * @details Assumes:
+ *            - `(den - 1) * num` does not overflow
+ *            - `den != 0`
+ * @return The value of `val * (num / den)`, rounded down.
+ */
+inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den)
+{
+    const wyt_time_t whole = (val / den) * num;
+    const wyt_time_t fract = ((val % den) * num) / den;
+    return whole + fract;
+}
+
 #ifdef __cplusplus
 }
 #endif
