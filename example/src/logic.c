@@ -69,6 +69,7 @@ extern wyt_retval_t WYT_ENTRY app_logic_thread(void* arg)
 extern Logic* logic_create(void)
 {
     Logic* const logic = malloc(sizeof(Logic));
+    ASSERT(logic != NULL);
     
     *logic = (Logic){};
     

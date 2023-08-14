@@ -31,6 +31,7 @@ extern bool app_quitting(const App* const app)
 extern App* app_create(void)
 {
     App* const app = malloc(sizeof(App));
+    ASSERT(app != NULL);
     
     *app = (App){};
 

@@ -77,6 +77,7 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window)
 extern Events* events_create(void)
 {
     Events* const events = malloc(sizeof(Events));
+    ASSERT(events != NULL);
     
     *events = (Events){};
     

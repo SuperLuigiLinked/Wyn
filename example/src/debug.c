@@ -33,6 +33,7 @@ extern void app_debug(App* const app)
 extern Debug* debug_create(void)
 {
     Debug* const debug = malloc(sizeof(Debug));
+    ASSERT(debug != NULL);
     
     *debug = (Debug){};
 

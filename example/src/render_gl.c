@@ -26,6 +26,7 @@ extern void app_render(App* const app)
 extern Render* render_create(void)
 {
     Render* const render = malloc(sizeof(Render));
+    ASSERT(render != NULL);
     
     *render = (Render){};
     
