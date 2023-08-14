@@ -27,6 +27,8 @@ static void logic_iterate(void* arg)
     App* const app = arg;
     ASSERT(app != NULL);
 
+    if (app_quitting(app)) return;
+
     app_update(app);
     app_render(app);
     app_debug(app);
