@@ -11,15 +11,11 @@ add_executable(wyn::example ALIAS wyn_example)
 
 # ================================================================================================================================
 
-target_sources(wyn_example
-    PRIVATE
-        "src/main.c"
-        "src/test.cpp"
-)
+target_sources(wyn_example PRIVATE "src/example.c")
 target_link_libraries(wyn_example wyn::wyn wyn::wyt wyn::wyg)
 
 if (WYN_EXAMPLE_GL)
-    target_sources(wyn_example PRIVATE "src/gfx_gl.c")
+    target_compile_definitions(wyn_example PRIVATE "WYN_EXAMPLE_GL")
 endif()
 
 # ================================================================================================================================
