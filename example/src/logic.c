@@ -4,14 +4,16 @@
 
 #include "utils.h"
 #include "debug.h"
+#include "events.h"
 #include "logic.h"
 
 // ================================================================================================================================
 
 extern void app_update(App* const app)
 {
-    Debug* const debug = app_get_debug(app);
-    Logic* const logic = app_get_logic(app);
+    [[maybe_unused]] Debug* const debug = app_get_debug(app);
+    [[maybe_unused]] Events* const events = app_get_events(app);
+    [[maybe_unused]] Logic* const logic = app_get_logic(app);
 
     debug->update_ts = wyt_nanotime();
     {

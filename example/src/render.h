@@ -15,6 +15,14 @@
 struct Render
 {
     uint64_t frame;
+    wyn_window_t window;
+
+#ifdef WYN_EXAMPLE_GL
+    EGLDisplay display;
+    EGLConfig config;
+    EGLContext context;
+    EGLSurface surface;
+#endif
 };
 
 // ================================================================================================================================
