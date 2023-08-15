@@ -2,22 +2,24 @@
  * @file logic.c
  */
 
-#include "logic.h"
-
-#include "app.h"
+#include "utils.h"
 #include "debug.h"
+#include "logic.h"
 
 // ================================================================================================================================
 
 extern void app_update(App* const app)
 {
-    app->debug->update_ts = wyt_nanotime();
+    Debug* const debug = app_get_debug(app);
+    Logic* const logic = app_get_logic(app);
+
+    debug->update_ts = wyt_nanotime();
     {
 
     }
-    app->debug->update_te = wyt_nanotime();
-    app->debug->update_el = app->debug->update_ts - app->debug->update_te;
-    ++app->logic->frame;
+    debug->update_te = wyt_nanotime();
+    debug->update_el = debug->update_ts - debug->update_te;
+    ++logic->frame;
 }
 
 // ================================================================================================================================
@@ -53,7 +55,7 @@ extern wyt_retval_t WYT_ENTRY app_logic_thread(void* arg)
     App* const app = arg;
     ASSERT(app != NULL);
 
-    const wyt_time_t epoch = app->epoch;
+    const wyt_time_t epoch = app_get_epoch(app);
     wyt_time_t last_tick = epoch;
 
     while (!app_quitting(app))
@@ -68,21 +70,16 @@ extern wyt_retval_t WYT_ENTRY app_logic_thread(void* arg)
 
 // ================================================================================================================================
 
-extern Logic* logic_create(void)
+extern void logic_init(Logic* const logic)
 {
-    Logic* const logic = malloc(sizeof(Logic));
-    ASSERT(logic != NULL);
-    
     *logic = (Logic){};
-    
-    return logic;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void logic_destroy(Logic* const logic)
+extern void logic_deinit(Logic* const logic)
 {
-    free(logic);
+    (void)logic;
 }
 
 // ================================================================================================================================

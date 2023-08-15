@@ -2,42 +2,40 @@
  * @file render_gl.c
  */
 
-#include "render.h"
-
-#include "app.h"
+#include "utils.h"
 #include "debug.h"
 #include "logic.h"
+#include "render.h"
 
 // ================================================================================================================================
 
 extern void app_render(App* const app)
 {
-    app->debug->render_ts = wyt_nanotime();
-    {
+    Debug* const debug = app_get_debug(app);
+    Logic* const logic = app_get_logic(app);
+    Render* const render = app_get_render(app);
 
+    debug->render_ts = wyt_nanotime();
+    {
+        (void)logic;
     }
-    app->debug->render_te = wyt_nanotime();
-    app->debug->render_el = app->debug->render_ts - app->debug->render_te;
-    ++app->render->frame;
+    debug->render_te = wyt_nanotime();
+    debug->render_el = debug->render_ts - debug->render_te;
+    ++render->frame;
 }
 
 // ================================================================================================================================
 
-extern Render* render_create(void)
+extern void render_init(Render* const render)
 {
-    Render* const render = malloc(sizeof(Render));
-    ASSERT(render != NULL);
-    
     *render = (Render){};
-    
-    return render;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void render_destroy(Render* const render)
+extern void render_deinit(Render* const render)
 {
-    free(render);
+    (void)render;
 }
 
 // ================================================================================================================================

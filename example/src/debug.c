@@ -2,23 +2,20 @@
  * @file debug.c
  */
 
+#include "utils.h"
 #include "debug.h"
-
 #include "app.h"
-#include "events.h"
-#include "logic.h"
-#include "render.h"
 
 // ================================================================================================================================
 
 extern void app_debug(App* const app)
 {
     const double fpn = (double)frames_per_second / (double)nanos_per_second;
-    const double frame_ts = (double)(app->debug->update_ts - app->epoch) * fpn;
-    const double frame_te = (double)(app->debug->render_te - app->epoch) * fpn;
+    const double frame_ts = (double)(app->debug.update_ts - app->epoch) * fpn;
+    const double frame_te = (double)(app->debug.render_te - app->epoch) * fpn;
     const double frame_el = frame_te - frame_ts;
-    const uint64_t updates = app->logic->frame - 1;
-    const uint64_t renders = app->render->frame - 1;
+    const uint64_t updates = app->logic.frame - 1;
+    const uint64_t renders = app->render.frame - 1;
     const int64_t dropped_u = (int64_t)frame_ts - (int64_t)updates;
     const int64_t dropped_r = (int64_t)frame_ts - (int64_t)renders;
 
@@ -30,21 +27,16 @@ extern void app_debug(App* const app)
 
 // ================================================================================================================================
 
-extern Debug* debug_create(void)
+extern void debug_init(Debug* const debug)
 {
-    Debug* const debug = malloc(sizeof(Debug));
-    ASSERT(debug != NULL);
-    
     *debug = (Debug){};
-
-    return debug;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void debug_destroy(Debug* const debug)
+extern void debug_deinit(Debug* const debug)
 {
-    free(debug);
+    (void)debug;
 }
 
 // ================================================================================================================================

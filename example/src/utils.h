@@ -38,24 +38,34 @@ typedef struct Render Render;
 // --------------------------------------------------------------------------------------------------------------------------------
 
 extern App* app_create(void);
-extern void app_destroy(App* app);
+extern void app_destroy(App* const app);
 
-extern Debug* debug_create(void);
-extern void debug_destroy(Debug* debug);
+extern void debug_init(Debug* const debug);
+extern void debug_deinit(Debug* const debug);
 
-extern Events* events_create(void);
-extern void events_destroy(Events* events);
+extern void events_init(Events* const events);
+extern void events_deinit(Events* const events);
 
-extern Logic* logic_create(void);
-extern void logic_destroy(Logic* logic);
+extern void logic_init(Logic* const logic);
+extern void logic_deinit(Logic* const logic);
 
-extern Render* render_create(void);
-extern void render_destroy(Render* render);
+extern void render_init(Render* const render);
+extern void render_deinit(Render* const render);
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 extern void app_quit(App* const app);
 extern bool app_quitting(const App* const app);
+
+extern void app_set_epoch(App* const app, const wyt_time_t epoch);
+extern wyt_time_t app_get_epoch(const App* const app);
+
+extern Debug* app_get_debug(App* const app);
+extern Events* app_get_events(App* const app);
+extern Logic* app_get_logic(App* const app);
+extern Render* app_get_render(App* const app);
+
+// --------------------------------------------------------------------------------------------------------------------------------
 
 extern void app_update(App* const app);
 extern void app_render(App* const app);

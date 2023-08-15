@@ -2,27 +2,28 @@
  * @file events.c
  */
 
+#include "utils.h"
+#include "debug.h"
 #include "events.h"
-
-#include "app.h"
 
 // ================================================================================================================================
 
 extern void wyn_on_start(void* userdata)
 {
     LOG("[WYN] <START>\n");
+    ASSERT(userdata != NULL);
 
-    App* const app = (App*)userdata;
-    ASSERT(app != NULL);
+    App* const app = userdata;
+    Events* const events = app_get_events(app);
 
-    app->epoch = wyt_nanotime();
+    app_set_epoch(app, wyt_nanotime());
 
-    app->events->window = wyn_open_window();
-    if (!app->events->window) { wyn_quit(); return; }
-    wyn_show_window(app->events->window);
+    events->window = wyn_open_window();
+    if (!events->window) { wyn_quit(); return; }
+    wyn_show_window(events->window);
 
-    app->events->thread = wyt_spawn(app_logic_thread, userdata);
-    if (!app->events->thread) { wyn_quit(); return; }
+    events->thread = wyt_spawn(app_logic_thread, userdata);
+    if (!events->thread) { wyn_quit(); return; }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -30,22 +31,23 @@ extern void wyn_on_start(void* userdata)
 extern void wyn_on_stop(void* userdata)
 {
     LOG("[WYN] <STOP>\n");
+    ASSERT(userdata != NULL);
 
-    App* const app = (App*)userdata;
-    ASSERT(app != NULL);
+    App* const app = userdata;
+    Events* const events = app_get_events(app);
 
     app_quit(app);
 
-    if (app->events->thread)
+    if (events->thread)
     {
-        wyt_join(app->events->thread);
-        app->events->thread = NULL;
+        wyt_join(events->thread);
+        events->thread = NULL;
     }
     
-    if (app->events->window)
+    if (events->window)
     {
-        wyn_close_window(app->events->window);
-        app->events->window = NULL;
+        wyn_close_window(events->window);
+        events->window = NULL;
     }
 }
 
@@ -54,41 +56,37 @@ extern void wyn_on_stop(void* userdata)
 extern void wyn_on_window_close(void* userdata, wyn_window_t window)
 {
     LOG("[WYN] <CLOSE>\n");
+    ASSERT(userdata != NULL);
 
-    App* const app = (App*)userdata;
-    ASSERT(app != NULL);
+    App* const app = userdata;
+    Events* const events = app_get_events(app);
 
-    if (window == app->events->window)
+    if (window == events->window)
     {
         app_quit(app);
 
-        if (app->events->thread)
+        if (events->thread)
         {
-            wyt_join(app->events->thread);
-            app->events->thread = NULL;
+            wyt_join(events->thread);
+            events->thread = NULL;
         }
 
-        app->events->window = NULL;
+        events->window = NULL;
     }    
 }
 
 // ================================================================================================================================
 
-extern Events* events_create(void)
+extern void events_init(Events* const events)
 {
-    Events* const events = malloc(sizeof(Events));
-    ASSERT(events != NULL);
-    
     *events = (Events){};
-    
-    return events;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void events_destroy(Events* const events)
+extern void events_deinit(Events* const events)
 {
-    free(events);
+    (void)events;
 }
 
 // ================================================================================================================================
