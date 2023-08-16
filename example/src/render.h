@@ -17,7 +17,7 @@ struct Render
     uint64_t frame;
     wyn_window_t window;
 
-#ifdef WYN_EXAMPLE_GL
+#if defined(WYG_EGL)
     EGLDisplay display;
     EGLConfig config;
     EGLContext context;

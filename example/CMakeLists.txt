@@ -27,8 +27,8 @@ target_sources(wyn_example PRIVATE
 target_link_libraries(wyn_example wyn::wyn wyn::wyt wyn::wyg)
 
 if (WYN_EXAMPLE_GL)
-    target_compile_definitions(wyn_example PRIVATE "WYN_EXAMPLE_GL")
     target_sources(wyn_example PRIVATE "src/render_gl.c")
+    target_compile_definitions(wyn_example PRIVATE "WYN_EXAMPLE_GL")
 endif()
 
 # ================================================================================================================================

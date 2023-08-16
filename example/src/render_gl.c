@@ -14,6 +14,7 @@ static void render_target_window(Render* const render, const wyn_window_t window
 {
     render->window = window;
 
+#if defined(WYG_EGL)
     const EGLBoolean res_api = eglBindAPI(EGL_OPENGL_API);
     ASSERT(res_api == EGL_TRUE);
 
@@ -22,7 +23,9 @@ static void render_target_window(Render* const render, const wyn_window_t window
 
     render->surface = eglCreateWindowSurface(render->display, render->config, (EGLNativeWindowType)window, NULL);
     
-    [[maybe_unused]] const EGLBoolean res_make = eglMakeCurrent(render->display, render->surface, render->surface, render->context);
+    const EGLBoolean res_make = eglMakeCurrent(render->display, render->surface, render->surface, render->context);
+    ASSERT(res_make == EGL_TRUE);
+#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -43,7 +46,9 @@ extern void app_render(App* const app)
         glClear(GL_COLOR_BUFFER_BIT);
         glFlush();
 
+    #if defined(WYG_EGL)
         eglSwapBuffers(render->display, render->surface);
+    #endif
     }
     debug->render_te = wyt_nanotime();
     debug->render_el = debug->render_ts - debug->render_te;
@@ -56,6 +61,7 @@ extern void render_init(Render* const render)
 {
     *render = (Render){};
 
+#if defined(WYG_EGL)
     render->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     ASSERT(render->display != NULL);
 
@@ -71,6 +77,7 @@ extern void render_init(Render* const render)
     EGLint num_config;
     const EGLBoolean res_choose = eglChooseConfig(render->display, attribute_list, &render->config, 1, &num_config);
     ASSERT(res_choose == EGL_TRUE);
+#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

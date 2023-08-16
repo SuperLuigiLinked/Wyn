@@ -13,9 +13,11 @@ target_sources(wyt PUBLIC "include/wyt.h")
 if (WIN32)
     target_sources(wyt PRIVATE "src/wyt_win32.c")
     target_link_libraries(wyt PRIVATE "kernel32" "winmm" "synchronization")
+    target_compile_definitions(wyt PUBLIC "WYT_WIN32")
 elseif (UNIX)
     target_sources(wyt PRIVATE "src/wyt_pthreads.c")
     target_link_libraries(wyt "pthread")
+    target_compile_definitions(wyt PUBLIC "WYT_PTHREADS")
 endif()
 
 # ================================================================================================================================
