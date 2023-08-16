@@ -10,11 +10,12 @@
 
 extern void wyn_on_start(void* userdata)
 {
-    LOG("[WYN] <START>\n");
     ASSERT(userdata != NULL);
-
     App* const app = userdata;
+    Debug* const debug = app_get_debug(app);
     Events* const events = app_get_events(app);
+    LOG("[WYN] (%"PRIu64") <START>\n", debug->events);
+    ++debug->events;
 
     app_set_epoch(app, wyt_nanotime());
 
@@ -30,11 +31,12 @@ extern void wyn_on_start(void* userdata)
 
 extern void wyn_on_stop(void* userdata)
 {
-    LOG("[WYN] <STOP>\n");
     ASSERT(userdata != NULL);
-
     App* const app = userdata;
+    Debug* const debug = app_get_debug(app);
     Events* const events = app_get_events(app);
+    LOG("[WYN] (%"PRIu64") <STOP>\n", debug->events);
+    ++debug->events;
 
     app_quit(app);
 
@@ -55,11 +57,12 @@ extern void wyn_on_stop(void* userdata)
 
 extern void wyn_on_window_close(void* userdata, wyn_window_t window)
 {
-    LOG("[WYN] <CLOSE>\n");
     ASSERT(userdata != NULL);
-
     App* const app = userdata;
+    Debug* const debug = app_get_debug(app);
     Events* const events = app_get_events(app);
+    LOG("[WYN] (%"PRIu64") <CLOSE>\n", debug->events);
+    ++debug->events;
 
     if (window == events->window)
     {
@@ -73,6 +76,23 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window)
 
         events->window = NULL;
     }    
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
+{
+    ASSERT(userdata != NULL);
+    App* const app = userdata;
+    Debug* const debug = app_get_debug(app);
+    Events* const events = app_get_events(app);
+    LOG("[WYN] (%"PRIu64") <REDRAW>\n", debug->events);
+    ++debug->events;
+
+    if (window == events->window)
+    {
+        //app_render(app);
+    }
 }
 
 // ================================================================================================================================

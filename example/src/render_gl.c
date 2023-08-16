@@ -14,19 +14,12 @@ static void render_target_window(Render* const render, const wyn_window_t window
 {
     render->window = window;
 
-    render->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    [[maybe_unused]] const EGLBoolean res_init = eglInitialize(render->display, NULL, NULL);
-    
-    const EGLint attribute_list[] = {
-        EGL_RED_SIZE, 1,
-        EGL_GREEN_SIZE, 1,
-        EGL_BLUE_SIZE, 1,
-        EGL_NONE
-    };
-    EGLint num_config;
-    [[maybe_unused]] const EGLBoolean res_choose = eglChooseConfig(render->display, attribute_list, &render->config, 1, &num_config);
+    const EGLBoolean res_api = eglBindAPI(EGL_OPENGL_API);
+    ASSERT(res_api == EGL_TRUE);
 
     render->context = eglCreateContext(render->display, render->config, EGL_NO_CONTEXT, NULL);
+    ASSERT(render->context != EGL_NO_CONTEXT);
+
     render->surface = eglCreateWindowSurface(render->display, render->config, (EGLNativeWindowType)window, NULL);
     
     [[maybe_unused]] const EGLBoolean res_make = eglMakeCurrent(render->display, render->surface, render->surface, render->context);
@@ -45,8 +38,8 @@ extern void app_render(App* const app)
 
     debug->render_ts = wyt_nanotime();
     {
-        /* clear the color buffer */
-        glClearColor(1.0, 1.0, 0.0, 1.0);
+        const float val = fabsf((float)((int64_t)(render->frame % 510) - 255)) / 255.0f;
+        glClearColor(val, val, val, val);
         glClear(GL_COLOR_BUFFER_BIT);
         glFlush();
 
@@ -62,13 +55,30 @@ extern void app_render(App* const app)
 extern void render_init(Render* const render)
 {
     *render = (Render){};
+
+    render->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    ASSERT(render->display != NULL);
+
+    const EGLBoolean res_init = eglInitialize(render->display, NULL, NULL);
+    ASSERT(res_init == EGL_TRUE);
+    
+    const EGLint attribute_list[] = {
+        EGL_RED_SIZE, 1,
+        EGL_GREEN_SIZE, 1,
+        EGL_BLUE_SIZE, 1,
+        EGL_NONE
+    };
+    EGLint num_config;
+    const EGLBoolean res_choose = eglChooseConfig(render->display, attribute_list, &render->config, 1, &num_config);
+    ASSERT(res_choose == EGL_TRUE);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 extern void render_deinit(Render* const render)
 {
-    (void)render;
+    const EGLBoolean res_terminate = eglTerminate(render->display);
+    ASSERT(res_terminate == EGL_TRUE);
 }
 
 // ================================================================================================================================

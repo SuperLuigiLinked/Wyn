@@ -62,7 +62,8 @@ extern wyt_retval_t WYT_ENTRY app_logic_thread(void* arg)
 
     while (!app_quitting(app))
     {
-        wyn_execute_async(logic_iterate, arg);
+        logic_iterate(arg);
+        //wyn_execute_async(logic_iterate, arg);
         logic_vsync(epoch, last_tick);
         last_tick = wyt_nanotime();
     }

@@ -10,6 +10,8 @@
 
 struct Debug
 {
+    uint64_t events;
+
     wyt_time_t update_ts;
     wyt_time_t update_te;
     wyt_time_t update_el;

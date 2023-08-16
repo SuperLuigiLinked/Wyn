@@ -13,9 +13,18 @@
 //     #include <GL/gl.h>
 // #endif
 
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wreserved-identifier"
+#endif
+
 #define GL_GLEXT_PROTOTYPES
-#include "GL/glcorearb.h"
-#include "EGL/egl.h"
+#include <GL/glcorearb.h>
+#include <EGL/egl.h>
+
+#ifdef __GNUC__
+    #pragma GCC diagnostic pop
+#endif
 
 // ================================================================================================================================
 
