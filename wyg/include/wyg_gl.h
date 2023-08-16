@@ -13,16 +13,17 @@
 //     #include <GL/gl.h>
 // #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wreserved-identifier"
+    #pragma GCC diagnostic ignored "-Wnonportable-system-include-path"
 #endif
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/glcorearb.h>
 #include <EGL/egl.h>
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
     #pragma GCC diagnostic pop
 #endif
 
