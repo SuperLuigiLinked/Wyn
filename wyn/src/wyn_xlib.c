@@ -115,7 +115,7 @@ static void wyn_run_native(void);
 
 /**
  * @brief Runs all pending exec-callbacks.
- * @param clear_all If `true`, runs until queue is empty. If `false`, runs until all current events are cleared.
+ * @param clear_all If `true`, runs until the queue is empty. If `false`, runs until all currently pending events are cleared.
  * @return `true` if the Event Loop should quit, `false` otherwise.
  */
 static bool wyn_clear_exec_events(bool clear_all);
