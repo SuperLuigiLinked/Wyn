@@ -72,6 +72,7 @@ struct wyn_state_t
     int xlib_fd;                ///< File Descriptor for the Xlib Connection.
     int read_pipe;              ///< File Descriptor for the Read-end of the Exec-Pipe.
     int write_pipe;             ///< File Descriptor for the Write-end of the Exec-Pipe.
+    _Atomic(size_t) pipe_len;   ///< Count of pending Pipe events.
 };
 
 /**
@@ -114,9 +115,10 @@ static void wyn_run_native(void);
 
 /**
  * @brief Runs all pending exec-callbacks.
+ * @param clear_all If `true`, runs until queue is empty. If `false`, runs until all current events are cleared.
  * @return `true` if the Event Loop should quit, `false` otherwise.
  */
-static bool wyn_clear_exec_events(void);
+static bool wyn_clear_exec_events(bool clear_all);
 
 /**
  * @brief Responds to all pending Xlib Events.
@@ -217,7 +219,7 @@ static bool wyn_init(void* userdata)
  */
 static void wyn_terminate(void)
 {
-    (void)wyn_clear_exec_events();
+    (void)wyn_clear_exec_events(true);
 
     if (wyn_state.write_pipe != -1)
     {
@@ -245,7 +247,9 @@ static void wyn_run_native(void)
 {
     (void)XFlush(wyn_state.display);
     
-    for (;;)
+    bool should_quit = false;
+
+    while (!should_quit)
     {
         struct pollfd fds[] = {
             [0] = { .fd = wyn_state.read_pipe, .events = POLLIN, .revents = 0 },
@@ -265,8 +269,7 @@ static void wyn_run_native(void)
 
             WYN_ASSERT(pipe_events == POLLIN);
 
-            const bool quit = wyn_clear_exec_events();
-            if (quit) return;
+            should_quit = wyn_clear_exec_events(false);
         }
         
         if (xlib_events != 0)
@@ -290,20 +293,25 @@ static void wyn_run_native(void)
  * @see https://man7.org/linux/man-pages/man2/read.2.html
  * @see https://man7.org/linux/man-pages/man3/memcpy.3.html
  */
-static bool wyn_clear_exec_events(void)
+static bool wyn_clear_exec_events(bool clear_all)
 {
     _Alignas(struct wyn_callback_t) char buf[sizeof(struct wyn_callback_t)];
+    bool should_quit = false;
 
-    for (;;)
+    const size_t pending = (clear_all ? 0 : atomic_load_explicit(&wyn_state.pipe_len, memory_order_relaxed));
+
+    for (size_t removed = 0; clear_all || (removed < pending); ++removed)
     {
         const ssize_t res = read(wyn_state.read_pipe, buf, sizeof(buf));
-        
         if (res == -1)
         {
             WYN_ASSERT(errno == EAGAIN);
-            return false;
+            break;
         }
-        else if (res == sizeof(struct wyn_callback_t))
+
+        atomic_fetch_sub_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
+
+        if (res == sizeof(struct wyn_callback_t))
         {
             struct wyn_callback_t callback;
             (void)memcpy(&callback, buf, sizeof(callback));
@@ -313,13 +321,16 @@ static bool wyn_clear_exec_events(void)
 
             if (callback.flag != NULL)
                 wyn_futex_wake(callback.flag, 1);
+
         }
         else
         {
             WYN_ASSERT(res != 0);
-            return true;
+            should_quit = true;
         }
     }
+
+    return should_quit;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -512,6 +523,8 @@ extern void wyn_quit(void)
     const char buf[] = { 0 };
     const ssize_t res = write(wyn_state.write_pipe, buf, sizeof(buf));
     WYN_ASSERT(res == sizeof(buf));
+
+    atomic_fetch_add_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -534,6 +547,8 @@ extern void wyn_execute(void (*func)(void*), void* arg)
         const ssize_t res = write(wyn_state.write_pipe, &callback, sizeof(callback));
         WYN_ASSERT(res == sizeof(callback));
 
+        atomic_fetch_add_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
+
         wyn_futex_wait(&flag, 0);
     }
 }
@@ -548,6 +563,8 @@ extern void wyn_execute_async(void (*func)(void*), void* arg)
     const struct wyn_callback_t callback = { .func = func, .arg = arg, .flag = NULL };
     const ssize_t res = write(wyn_state.write_pipe, &callback, sizeof(callback));
     WYN_ASSERT(res == sizeof(callback));
+
+    atomic_fetch_add_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
