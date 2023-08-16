@@ -382,6 +382,14 @@ static void wyn_clear_xlib_events(void)
                 }
             }
             break;
+
+            case Expose:
+            {
+                const XExposeEvent* const xevt = &event.xexpose;
+
+                wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)xevt->window);
+            }
+            break;
         }
     }
 }

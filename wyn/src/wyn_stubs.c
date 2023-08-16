@@ -16,5 +16,6 @@
 extern void wyn_on_start(void* userdata)                                { (void)userdata; }
 extern void wyn_on_stop(void* userdata)                                 { (void)userdata; }
 extern void wyn_on_window_close(void* userdata, wyn_window_t window)    { (void)userdata; (void)window; wyn_quit(); }
+extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)   { (void)userdata; (void)window; }
 
 // ================================================================================================================================

@@ -124,6 +124,13 @@ extern void wyn_on_stop(void* userdata);
  */
 extern void wyn_on_window_close(void* userdata, wyn_window_t window);
 
+/**
+ * @brief Called when a Window needs its contents redrawn.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window that needs its contents redrawn.
+ */
+extern void wyn_on_window_redraw(void* userdata, wyn_window_t window);
+
 #ifdef __cplusplus
 }
 #endif
