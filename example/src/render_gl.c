@@ -82,10 +82,12 @@ extern void render_init(Render* const render)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void render_deinit(Render* const render)
+extern void render_deinit(Render* const render [[maybe_unused]])
 {
+#if defined(WYG_EGL)
     const EGLBoolean res_terminate = eglTerminate(render->display);
     ASSERT(res_terminate == EGL_TRUE);
+#endif
 }
 
 // ================================================================================================================================

@@ -104,9 +104,8 @@ extern void events_init(Events* const events)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void events_deinit(Events* const events)
+extern void events_deinit(Events* const events [[maybe_unused]])
 {
-    (void)events;
 }
 
 // ================================================================================================================================
