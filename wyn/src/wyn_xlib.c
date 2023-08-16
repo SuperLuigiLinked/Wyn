@@ -63,7 +63,8 @@ static const char* const wyn_atom_names[wyn_atom_len] = {
 struct wyn_state_t
 {
     void* userdata;             ///< The pointer provided by the user when the Event Loop was started.
-    
+    bool quitting;              ///< Whether or not the Event Loop should stop.
+
     Display* display;           ///< The connection to the X Window System.
     Atom atoms[wyn_atom_len];   ///< List of cached X Atoms.
 
@@ -89,7 +90,7 @@ struct wyn_callback_t
 {
     void (*func)(void*);    ///< The function to call.
     void* arg;              ///< The argument to pass to the function.
-    _Atomic uint32_t* flag; ///< Flag for controlling synchronous execution.
+    _Atomic(uint32_t)* flag; ///< Flag for controlling synchronous execution.
 };
 
 _Static_assert(sizeof(struct wyn_callback_t) <= PIPE_BUF, "Atomic pipe operations not possible.");
@@ -116,9 +117,8 @@ static void wyn_run_native(void);
 /**
  * @brief Runs all pending exec-callbacks.
  * @param clear_all If `true`, runs until the queue is empty. If `false`, runs until all currently pending events are cleared.
- * @return `true` if the Event Loop should quit, `false` otherwise.
  */
-static bool wyn_clear_exec_events(bool clear_all);
+static void wyn_clear_exec_events(bool clear_all);
 
 /**
  * @brief Responds to all pending Xlib Events.
@@ -148,12 +148,12 @@ static void wyn_xlib_io_error_exit_handler(Display* display, void* userdata);
 /**
  * @brief Waits until the value at `addr` is no longer equal to `val`.
  */
-static void wyn_futex_wait(const _Atomic uint32_t* addr, uint32_t val);
+static void wyn_futex_wait(const _Atomic(uint32_t)* addr, uint32_t val);
 
 /**
  * @brief Atomically sets the value at `addr` to `val` and wakes up to 1 thread waiting on it.
  */
-static void wyn_futex_wake(_Atomic uint32_t* addr, uint32_t val);
+static void wyn_futex_wake(_Atomic(uint32_t)* addr, uint32_t val);
 
 // ================================================================================================================================
 //  Private Definitions
@@ -219,7 +219,7 @@ static bool wyn_init(void* userdata)
  */
 static void wyn_terminate(void)
 {
-    (void)wyn_clear_exec_events(true);
+    wyn_clear_exec_events(true);
 
     if (wyn_state.write_pipe != -1)
     {
@@ -247,42 +247,32 @@ static void wyn_run_native(void)
 {
     (void)XFlush(wyn_state.display);
     
-    bool should_quit = false;
-
-    while (!should_quit)
+    while (!wyn_state.quitting)
     {
-        struct pollfd fds[] = {
-            [0] = { .fd = wyn_state.read_pipe, .events = POLLIN, .revents = 0 },
-            [1] = { .fd = wyn_state.xlib_fd, .events = POLLIN, .revents = 0 },
+        enum { pipe_idx, xlib_idx, nfds };
+
+        struct pollfd fds[nfds] = {
+            [pipe_idx] = { .fd = wyn_state.read_pipe, .events = POLLIN, .revents = 0 },
+            [xlib_idx] = { .fd = wyn_state.xlib_fd, .events = POLLIN, .revents = 0 },
         };
-        const nfds_t nfds = sizeof(fds) / sizeof(*fds);
         const int res_poll = poll(fds, nfds, -1);
         WYN_ASSERT((res_poll != -1) && (res_poll != 0));
 
-        const short pipe_events = fds[0].revents;
-        const short xlib_events = fds[1].revents;
+        const short pipe_events = fds[pipe_idx].revents;
+        const short xlib_events = fds[xlib_idx].revents;
 
         if (pipe_events != 0)
         {
-            if (pipe_events != POLLIN)
-                WYN_LOG("[POLL-PIPE] %04hX\n", pipe_events);
-
+            if (pipe_events != POLLIN) WYN_LOG("[POLL-PIPE] %04hX\n", pipe_events);
             WYN_ASSERT(pipe_events == POLLIN);
-
-            should_quit = wyn_clear_exec_events(false);
+            wyn_clear_exec_events(false);
         }
         
         if (xlib_events != 0)
         {
-            if (xlib_events != POLLIN)
-                WYN_LOG("[POLL-XLIB] %04hX\n", xlib_events);
-
-            if (xlib_events & POLLIN)
-                wyn_clear_xlib_events();
-
-            if (xlib_events & POLLHUP) return;
-
+            if (xlib_events != POLLIN) WYN_LOG("[POLL-XLIB] %04hX\n", xlib_events);
             WYN_ASSERT(xlib_events == POLLIN);
+            wyn_clear_xlib_events();
         }
     }
 }
@@ -293,44 +283,35 @@ static void wyn_run_native(void)
  * @see https://man7.org/linux/man-pages/man2/read.2.html
  * @see https://man7.org/linux/man-pages/man3/memcpy.3.html
  */
-static bool wyn_clear_exec_events(bool clear_all)
+static void wyn_clear_exec_events(bool clear_all)
 {
     _Alignas(struct wyn_callback_t) char buf[sizeof(struct wyn_callback_t)];
-    bool should_quit = false;
 
     const size_t pending = (clear_all ? 0 : atomic_load_explicit(&wyn_state.pipe_len, memory_order_relaxed));
 
     for (size_t removed = 0; clear_all || (removed < pending); ++removed)
     {
         const ssize_t res = read(wyn_state.read_pipe, buf, sizeof(buf));
+
         if (res == -1)
         {
             WYN_ASSERT(errno == EAGAIN);
             break;
         }
-
         atomic_fetch_sub_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
-
-        if (res == sizeof(struct wyn_callback_t))
+        
+        WYN_ASSERT(res == sizeof(struct wyn_callback_t));
         {
             struct wyn_callback_t callback;
-            (void)memcpy(&callback, buf, sizeof(callback));
+            (void)memcpy(&callback, buf, sizeof(struct wyn_callback_t));
             
             WYN_ASSERT(callback.func != NULL);
             callback.func(callback.arg);
 
             if (callback.flag != NULL)
                 wyn_futex_wake(callback.flag, 1);
-
-        }
-        else
-        {
-            WYN_ASSERT(res != 0);
-            should_quit = true;
         }
     }
-
-    return should_quit;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -385,6 +366,8 @@ static void wyn_clear_xlib_events(void)
 
             case Expose:
             {
+                WYN_EVT_LOG("* Expose\n");
+
                 const XExposeEvent* const xevt = &event.xexpose;
 
                 wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)xevt->window);
@@ -483,7 +466,7 @@ static void wyn_xlib_io_error_exit_handler(Display* display [[maybe_unused]], vo
  * @see https://man7.org/linux/man-pages/man2/futex.2.html
  * @see https://man7.org/linux/man-pages/man2/syscall.2.html
  */
-static void wyn_futex_wait(const _Atomic uint32_t* addr, uint32_t val)
+static void wyn_futex_wait(const _Atomic(uint32_t)* addr, uint32_t val)
 {
     while (atomic_load_explicit(addr, memory_order_acquire) == val)
     {
@@ -499,7 +482,7 @@ static void wyn_futex_wait(const _Atomic uint32_t* addr, uint32_t val)
  * @see https://man7.org/linux/man-pages/man2/syscall.2.html
  * @see https://man7.org/linux/man-pages/man2/futex.2.html
  */
-static void wyn_futex_wake(_Atomic uint32_t* addr, uint32_t val)
+static void wyn_futex_wake(_Atomic(uint32_t)* addr, uint32_t val)
 {
     (void)atomic_store_explicit(addr, val, memory_order_release);
     const long res = syscall(SYS_futex, addr, FUTEX_WAKE_PRIVATE, 1);
@@ -528,11 +511,7 @@ extern void wyn_run(void* userdata)
  */
 extern void wyn_quit(void)
 {
-    const char buf[] = { 0 };
-    const ssize_t res = write(wyn_state.write_pipe, buf, sizeof(buf));
-    WYN_ASSERT(res == sizeof(buf));
-
-    atomic_fetch_add_explicit(&wyn_state.pipe_len, 1, memory_order_relaxed);
+    wyn_state.quitting = true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -549,7 +528,7 @@ extern void wyn_execute(void (*func)(void*), void* arg)
     }
     else
     {
-        _Atomic uint32_t flag = 0;
+        _Atomic(uint32_t) flag = 0;
 
         const struct wyn_callback_t callback = { .func = func, .arg = arg, .flag = &flag };
         const ssize_t res = write(wyn_state.write_pipe, &callback, sizeof(callback));
