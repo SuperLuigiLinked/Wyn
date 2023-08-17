@@ -5,8 +5,9 @@
 
 #include "wyn.h"
 
-#include <stdio.h>
+#include <stdatomic.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #import <Cocoa/Cocoa.h>
 
@@ -48,8 +49,9 @@
 struct wyn_state_t 
 {
     void* userdata;             ///< The pointer provided by the user when the Event Loop was started.
+    _Atomic(bool) quitting;     ///< Flag to indicate the Event Loop is quitting.
+
     wyn_delegate_t* delegate;   ///< Instance of the Delegate Class.
-    bool clearing_events;       ///< Flag indicating that events are being cleared.
 };
 
 /**
@@ -75,13 +77,13 @@ static void wyn_terminate(void);
  * @brief Closes all remaining open Windows.
  * @param[in] arg [unused]
  */
-static void wyn_async_close(void* arg);
+static void wyn_close_callback(void* arg);
 
 /**
  * @brief Stops the running NSApplication.
  * @param[in] arg [unused]
  */
-static void wyn_async_quit(void* arg);
+static void wyn_stop_callback(void* arg);
 
 /**
  * @brief Runs the platform-native Event Loop.
@@ -102,8 +104,8 @@ static bool wyn_init(void* userdata)
 {
     wyn_state = (struct wyn_state_t){
         .userdata = userdata,
+        .quitting = false,
         .delegate = NULL,
-        .clearing_events = false,
     };
     
     [NSApplication sharedApplication];
@@ -120,22 +122,18 @@ static bool wyn_init(void* userdata)
 
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
- * @bug Newly added exec-callbacks may be missed.
+ * @see https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
+ * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
 static void wyn_terminate(void)
 {
-    wyn_state.clearing_events = true;
-
-    wyn_execute_async(wyn_async_quit, nil);
+    const dispatch_queue_main_t main_queue = dispatch_get_main_queue();
+    dispatch_async_f(main_queue, nil, wyn_close_callback);
+    dispatch_async_f(main_queue, nil, wyn_stop_callback);
     [NSApp run];
-    [NSEvent stopPeriodicEvents];
 
-    wyn_execute_async(wyn_async_close, nil);
     [NSApp setDelegate:nil];
-    
-    wyn_state.clearing_events = false;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -144,21 +142,25 @@ static void wyn_terminate(void)
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1644472-enumeratewindowswithoptions?language=objc
  */
-static void wyn_async_close(void* arg [[maybe_unused]])
+static void wyn_close_callback(void* arg [[maybe_unused]])
 {
-    void(^close_block)(NSWindow* _Nonnull, BOOL* _Nonnull) = ^void(NSWindow* _Nonnull window, BOOL* _Nonnull stop [[maybe_unused]])
-    {
-        [window close];
-    };
-    [NSApp enumerateWindowsWithOptions:NSWindowListOrderedFrontToBack usingBlock:close_block];
+    [NSApp
+        enumerateWindowsWithOptions:NSWindowListOrderedFrontToBack
+        usingBlock: ^void(NSWindow* _Nonnull window, BOOL* _Nonnull stop [[maybe_unused]])
+        {
+            [window close];
+        }
+    ];
 }
 
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
  */
-static void wyn_async_quit(void* arg [[maybe_unused]])
+static void wyn_stop_callback(void* arg [[maybe_unused]])
 {
-    wyn_quit();
+    [NSApp stop:nil];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -169,6 +171,7 @@ static void wyn_async_quit(void* arg [[maybe_unused]])
 static void wyn_run_native(void)
 {
     [NSApp run];
+    wyn_quit();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -264,33 +267,70 @@ extern void wyn_run(void* userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ * @see https://en.cppreference.com/w/c/atomic/atomic_store
+ * @see https://developer.apple.com/documentation/appkit/nsapplication/1428759-running?language=objc
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
+ * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
  */
 extern void wyn_quit(void)
 {
-    [NSApp stop:nil];
+    const bool was_quitting = atomic_exchange_explicit(&wyn_state.quitting, true, memory_order_relaxed);
 
-    [NSEvent stopPeriodicEvents];
-    [NSEvent startPeriodicEventsAfterDelay:0.0 withPeriod:0.1];
+    if (!was_quitting && [NSApp isRunning])
+    {
+        [NSApp stop:nil];
+        [NSEvent stopPeriodicEvents];
+        [NSEvent startPeriodicEventsAfterDelay:0.0 withPeriod:0.1];
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/3191902-dispatch_async_and_wait_f
+ * @see https://en.cppreference.com/w/c/atomic/atomic_load
+ */
+extern bool wyn_quitting(void)
+{
+    return atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
  * @see https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
  */
-extern void wyn_execute(void (*func)(void *), void *arg)
+extern bool wyn_is_this_thread(void)
 {
-    if ([NSThread isMainThread])
+    return [NSThread isMainThread];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://en.cppreference.com/w/c/atomic/atomic_load
+ * @see https://en.cppreference.com/w/c/atomic/atomic_store
+ * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * @see https://developer.apple.com/documentation/dispatch/3191901-dispatch_async_and_wait
+ */
+extern wyn_exec_t wyn_execute(void (*func)(void *), void *arg)
+{
+    if (wyn_is_this_thread())
     {
         func(arg);
+        return wyn_exec_success;
     }
     else
     {
-        const dispatch_queue_main_t queue = dispatch_get_main_queue();
-        dispatch_async_and_wait_f(queue, arg, func);
+        __block _Atomic(wyn_exec_t) res = wyn_exec_canceled;
+
+        dispatch_async_and_wait(dispatch_get_main_queue(), ^{
+            if (wyn_quitting()) return;
+            func(arg);
+            atomic_store_explicit(&res, wyn_exec_success, memory_order_release);
+        });
+
+        return atomic_load_explicit(&res, memory_order_acquire);
     }
 }
 
@@ -298,12 +338,16 @@ extern void wyn_execute(void (*func)(void *), void *arg)
 
 /**
  * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/1452834-dispatch_async_f
+ * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
-extern void wyn_execute_async(void (*func)(void *), void *arg)
+extern wyn_exec_t wyn_execute_async(void (*func)(void *), void *arg)
 {
-    const dispatch_queue_main_t queue = dispatch_get_main_queue();
-    dispatch_async_f(queue, arg, func);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (wyn_quitting()) return;
+        func(arg);
+    });
+
+    return wyn_exec_success;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -331,7 +375,6 @@ extern wyn_window_t wyn_open_window(void)
 
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419288-performclose?language=objc
  */
 extern void wyn_close_window(wyn_window_t window)
 {
