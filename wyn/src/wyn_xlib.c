@@ -148,7 +148,7 @@ static void wyn_xlib_io_error_exit_handler(Display* display, void* userdata);
 /**
  * @brief Waits until the value at `addr` is no longer equal to `val`.
  */
-static void wyn_futex_wait(const _Atomic(uint32_t)* addr, uint32_t val);
+static uint32_t wyn_futex_wait(const _Atomic(uint32_t)* addr, uint32_t val);
 
 /**
  * @brief Atomically sets the value at `addr` to `val` and wakes up to 1 thread waiting on it.
@@ -265,7 +265,7 @@ static void wyn_run_native(void)
         {
             if (pipe_events != POLLIN) WYN_LOG("[POLL-PIPE] %04hX\n", pipe_events);
             WYN_ASSERT(pipe_events == POLLIN);
-            wyn_clear_exec_events();
+            wyn_clear_exec_events(false);
         }
         
         if (xlib_events != 0)
@@ -304,7 +304,7 @@ static void wyn_clear_exec_events(const bool cancel)
 
         if (callback.flag != NULL)
         {
-            const uint32_t wake_val = (uint32_t)(cancel ? wyn_exec_canceled : wyn_exec_success)
+            const uint32_t wake_val = (uint32_t)(cancel ? wyn_exec_canceled : wyn_exec_success);
             wyn_futex_wake(callback.flag, wake_val);
         }
     }
@@ -523,7 +523,7 @@ extern void wyn_quit(void)
  */
 extern bool wyn_quitting(void)
 {
-    atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -575,19 +575,19 @@ extern wyn_exec_t wyn_execute(void (*func)(void*), void* arg)
  * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
  * @see https://man7.org/linux/man-pages/man2/write.2.html
  */
-extern bool wyn_execute_async(void (*func)(void*), void* arg)
+extern wyn_exec_t wyn_execute_async(void (*func)(void*), void* arg)
 {
-    if (wyn_quitting()) return false;
+    if (wyn_quitting()) return wyn_exec_canceled;
 
     const struct wyn_callback_t callback = { .func = func, .arg = arg, .flag = NULL };
 
     const ssize_t bytes_written = write(wyn_state.write_pipe, &callback, sizeof(callback));
-    if (bytes_written == -1) return false;
+    if (bytes_written == -1) return wyn_exec_failed;
 
     WYN_ASSERT(bytes_written == sizeof(callback));
     atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_relaxed);
 
-    return true;
+    return wyn_exec_success;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

@@ -83,6 +83,8 @@ extern void app_render(App* const app)
         glFlush();
 
         render_swapbuffers(render);
+
+        glFinish();
     }
     debug->render_te = wyt_nanotime();
     debug->render_el = debug->render_ts - debug->render_te;
