@@ -55,7 +55,7 @@ extern void wyn_on_stop(void* userdata)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyn_on_window_close(void* userdata, wyn_window_t window)
+extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 {
     ASSERT(userdata != NULL);
     App* const app = userdata;
@@ -68,13 +68,13 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window)
     {
         app_quit(app);
 
-        if (events->thread)
-        {
-            wyt_join(events->thread);
-            events->thread = NULL;
-        }
+        // if (events->thread)
+        // {
+        //     wyt_join(events->thread);
+        //     events->thread = NULL;
+        // }
 
-        events->window = NULL;
+        // events->window = NULL;
     }    
 }
 

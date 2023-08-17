@@ -12,15 +12,15 @@ static void app_quit_callback(void*)
     wyn_quit();
 }
 
-extern void app_quit(App* const app)
+extern void app_quit(App* const app [[maybe_unused]])
 {
-    const bool quitting = atomic_exchange_explicit(&app->quit_flag, true, memory_order_relaxed);
-    if (!quitting) wyn_execute_async(app_quit_callback, NULL);
+    const wyn_exec_t res = wyn_execute_async(app_quit_callback, NULL);
+    ASSERT(res != wyn_exec_failed);
 }
 
-extern bool app_quitting(const App* const app)
+extern bool app_quitting(const App* const app [[maybe_unused]])
 {
-    return atomic_load_explicit(&app->quit_flag, memory_order_relaxed);
+    return wyn_quitting();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

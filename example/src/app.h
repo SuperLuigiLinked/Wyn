@@ -14,7 +14,6 @@
 
 struct App
 {
-    _Atomic(bool) quit_flag;
     wyt_time_t epoch;
 
     Debug debug;

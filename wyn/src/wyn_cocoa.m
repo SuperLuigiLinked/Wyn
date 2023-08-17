@@ -201,8 +201,8 @@ static void wyn_run_native(void)
 {
     const wyn_window_t window = (wyn_window_t)sender;
 
-    wyn_on_window_close(wyn_state.userdata, window);
-    return TRUE;
+    wyn_on_window_close_request(wyn_state.userdata, window);
+    return FALSE;
 }
 
 @end
@@ -330,12 +330,13 @@ extern wyn_window_t wyn_open_window(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419288-performclose?language=objc
  */
 extern void wyn_close_window(wyn_window_t window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd performClose:nil];
+    [nsWnd close];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
