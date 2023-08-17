@@ -17,7 +17,10 @@ struct Render
     uint64_t frame;
     wyn_window_t window;
 
-#if defined(WYG_EGL)
+#if defined(WYG_WGL)
+    HDC hdc;
+    HGLRC hglrc;
+#elif defined(WYG_EGL)
     EGLDisplay display;
     EGLConfig config;
     EGLContext context;
