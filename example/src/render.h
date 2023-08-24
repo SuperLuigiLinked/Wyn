@@ -14,8 +14,11 @@
 
 struct Render
 {
+    Common* common;
+
     uint64_t frame;
-    wyn_window_t window;
+    wyt_time_t frame_ts;
+    wyt_time_t frame_te;
 
 #if defined(WYG_WGL)
     HDC hdc;

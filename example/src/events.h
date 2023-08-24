@@ -10,8 +10,12 @@
 
 struct Events
 {
-    wyt_thread_t thread;
-    wyn_window_t window;
+    Common* common;
+
+    uint64_t events;
+
+    wyt_thread_t update_thread;
+    wyt_thread_t render_thread;
 };
 
 // ================================================================================================================================

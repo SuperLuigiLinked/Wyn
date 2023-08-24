@@ -3,109 +3,97 @@
  */
 
 #include "utils.h"
-#include "debug.h"
+#include "common.h"
 #include "events.h"
+
+// ================================================================================================================================
+
+static void events_init(Events* const restrict events)
+{
+    events->common->window = wyn_open_window();
+    ASSERT(events->common->window != 0);
+
+    events->common->epoch = wyt_nanotime();
+
+    events->update_thread = wyt_spawn(update_loop, events->common);
+    ASSERT(events->update_thread != 0);
+
+    events->render_thread = wyt_spawn(render_loop, events->common);
+    ASSERT(events->render_thread != 0);
+
+    wyn_show_window(events->common->window);
+}
+
+static void events_deinit(Events* const restrict events)
+{
+    if (events->render_thread != 0)
+    {
+        (void)wyt_join(events->render_thread);
+        events->render_thread = 0;
+    }
+
+    if (events->update_thread != 0)
+    {
+        (void)wyt_join(events->update_thread);
+        events->update_thread = 0;
+    }
+
+    if (events->common->window != 0)
+    {
+        wyn_close_window(events->common->window);
+        events->common->window = 0;
+    }
+}
 
 // ================================================================================================================================
 
 extern void wyn_on_start(void* userdata)
 {
-    ASSERT(userdata != NULL);
-    App* const app = userdata;
-    Debug* const debug = app_get_debug(app);
-    Events* const events = app_get_events(app);
-    LOG("[WYN] (%"PRIu64") <START>\n", debug->events);
-    ++debug->events;
+    Events* const restrict events = userdata;
+    LOG("[EVENTS] (%"PRIu64") START\n", ++events->events);
 
-    app_set_epoch(app, wyt_nanotime());
-
-    events->window = wyn_open_window();
-    if (!events->window) { wyn_quit(); return; }
-    wyn_show_window(events->window);
-
-    events->thread = wyt_spawn(app_logic_thread, userdata);
-    if (!events->thread) { wyn_quit(); return; }
+    events_init(events);
 }
-
-// --------------------------------------------------------------------------------------------------------------------------------
 
 extern void wyn_on_stop(void* userdata)
 {
-    ASSERT(userdata != NULL);
-    App* const app = userdata;
-    Debug* const debug = app_get_debug(app);
-    Events* const events = app_get_events(app);
-    LOG("[WYN] (%"PRIu64") <STOP>\n", debug->events);
-    ++debug->events;
-
-    app_quit(app);
-
-    if (events->thread)
-    {
-        wyt_join(events->thread);
-        events->thread = NULL;
-    }
+    Events* const restrict events = userdata;
+    LOG("[EVENTS] (%"PRIu64") STOP\n", ++events->events);
     
-    if (events->window)
-    {
-        wyn_close_window(events->window);
-        events->window = NULL;
-    }
+    events_deinit(events);
 }
-
-// --------------------------------------------------------------------------------------------------------------------------------
 
 extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 {
-    ASSERT(userdata != NULL);
-    App* const app = userdata;
-    Debug* const debug = app_get_debug(app);
-    Events* const events = app_get_events(app);
-    LOG("[WYN] (%"PRIu64") <CLOSE>\n", debug->events);
-    ++debug->events;
+    Events* const restrict events = userdata;
+    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++events->events);
 
-    if (window == events->window)
+    if (window == events->common->window)
     {
-        app_quit(app);
-
-        // if (events->thread)
-        // {
-        //     wyt_join(events->thread);
-        //     events->thread = NULL;
-        // }
-
-        // events->window = NULL;
-    }    
+        wyn_quit();
+    }
 }
-
-// --------------------------------------------------------------------------------------------------------------------------------
 
 extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
 {
-    ASSERT(userdata != NULL);
-    App* const app = userdata;
-    Debug* const debug = app_get_debug(app);
-    Events* const events = app_get_events(app);
-    LOG("[WYN] (%"PRIu64") <REDRAW>\n", debug->events);
-    ++debug->events;
+    Events* const restrict events = userdata;
+    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++events->events);
 
-    if (window == events->window)
+    if (window == events->common->window)
     {
-        //app_render(app);
+        (void)window;
     }
 }
 
 // ================================================================================================================================
 
-extern void events_init(Events* const events)
+extern void events_loop(void)
 {
-    *events = (Events){};
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-extern void events_deinit(Events* const events [[maybe_unused]])
-{
+    Common common = {};
+    {
+        Events events = { .common = &common };
+        wyn_run(&events);
+    }
 }
 
 // ================================================================================================================================
