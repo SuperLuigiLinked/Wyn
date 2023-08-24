@@ -1,5 +1,5 @@
 /**
- * @file debug.h
+ * @file update.h
  */
 
 #pragma once
@@ -8,17 +8,13 @@
 
 // ================================================================================================================================
 
-struct Debug
+struct Update
 {
-    uint64_t events;
+    Common* common;
 
-    wyt_time_t update_ts;
-    wyt_time_t update_te;
-    wyt_time_t update_el;
-
-    wyt_time_t render_ts;
-    wyt_time_t render_te;
-    wyt_time_t render_el;
+    uint64_t frame;
+    wyt_time_t frame_ts;
+    wyt_time_t frame_te;
 };
 
 // ================================================================================================================================

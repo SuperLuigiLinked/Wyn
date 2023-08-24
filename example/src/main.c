@@ -20,9 +20,7 @@ int main(void)
 {
     LOG("[START]\n");
     {
-        App* const app = app_create();
-        wyn_run(app);
-        app_destroy(app);
+        events_loop();
     }
     LOG("[STOP]\n");
     return 0;
