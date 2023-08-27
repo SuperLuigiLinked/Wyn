@@ -1,6 +1,6 @@
 /**
- * @file wyn_xlib.c
- * @brief Implementation of Wyn for the Xlib backend.
+ * @file wyn_x11.c
+ * @brief Implementation of Wyn for the X11 backend.
  */
 
 #include "wyn.h"
@@ -20,7 +20,18 @@
 #include <sys/syscall.h>
 #include <linux/futex.h>
 #include <linux/limits.h>
-#include <X11/Xlib.h>
+
+#if (defined(WYN_X11) + defined(WYN_XLIB) + defined(WYN_XCB)) != 1
+    #error "Must specify exactly one Wyn X11 backend!"
+#endif
+
+#if defined(WYN_X11)
+    #include <X11/Xlib-xcb.h>
+#elif defined(WYN_XLIB)
+    #include <X11/Xlib.h>
+#elif defined(WYN_XCB)
+    #include <xcb/xcb.h>
+#endif
 
 // ================================================================================================================================
 //  Private Macros
@@ -41,7 +52,7 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @brief Indices for Wyn Atoms.
+ * @brief Indices for Wyn X-Atoms.
  */
 enum wyn_atom {
     wyn_atom_WM_PROTOCOLS,
@@ -50,7 +61,7 @@ enum wyn_atom {
 };
 
 /**
- * @brief Names for Wyn Atoms.
+ * @brief Names for Wyn X-Atoms.
  */
 static const char* const wyn_atom_names[wyn_atom_len] = {
     [wyn_atom_WM_PROTOCOLS] = "WM_PROTOCOLS",
@@ -67,13 +78,24 @@ struct wyn_state_t
 
     pid_t tid_main;             ///< Thread ID of the Main Thread.
 
-    int xlib_fd;                ///< File Descriptor for the Xlib Connection.
+    int x11_fd;                 ///< File Descriptor for the X11 Connection.
     int read_pipe;              ///< File Descriptor for the Read-end of the Exec-Pipe.
     int write_pipe;             ///< File Descriptor for the Write-end of the Exec-Pipe.
     _Atomic(size_t) len_pipe;   ///< Count of pending Pipe events.
 
-    Display* display;           ///< The connection to the X Window System.
-    Atom atoms[wyn_atom_len];   ///< List of cached X Atoms.
+#if defined(WYN_X11) || defined(WYN_XLIB)
+    Display* xlib_display;                  ///< The Xlib Connection to the X Window System.
+#endif
+
+#if defined(WYN_X11) || defined(WYN_XCB)
+    xcb_connection_t* xcb_connection;       ///< The Xcb Connection to the X Window System.
+#endif
+
+#if defined(WYN_XLIB)
+    Atom atoms[wyn_atom_len];               ///< List of cached X Atoms.
+#elif defined(WYN_X11) || defined(WYN_XCB)
+    xcb_atom_t atoms[wyn_atom_len];         ///< List of cached X Atoms.
+#endif
 };
 
 /**
@@ -121,29 +143,31 @@ static void wyn_run_native(void);
 static void wyn_clear_exec_events(const bool cancel);
 
 /**
- * @brief Responds to all pending Xlib Events.
+ * @brief Responds to all pending X11 Events.
  */
-static void wyn_clear_xlib_events(void);
+static void wyn_clear_x11_events(void);
 
 /**
  * @brief Returns the name for the given XEvent type.
  */
 static const char* wyn_xevent_name(int type);
 
-/**
- * @brief Xlib Error Handler.
- */
-static int wyn_xlib_error_handler(Display* display, XErrorEvent* error);
+#if defined(WYN_XLIB)
+    /**
+    * @brief Xlib Error Handler.
+    */
+    static int wyn_xlib_error_handler(Display* display, XErrorEvent* error);
 
-/**
- * @brief Xlib IO Error Handler.
- */
-static int wyn_xlib_io_error_handler(Display* display);
+    /**
+    * @brief Xlib IO Error Handler.
+    */
+    static int wyn_xlib_io_error_handler(Display* display);
 
-/**
- * @brief Xlib IO Error Exit Handler.
- */
-static void wyn_xlib_io_error_exit_handler(Display* display, void* userdata);
+    /**
+    * @brief Xlib IO Error Exit Handler.
+    */
+    static void wyn_xlib_io_error_exit_handler(Display* display, void* userdata);
+#endif
 
 /**
  * @brief Waits until the value at `addr` is no longer equal to `val`.
@@ -160,12 +184,16 @@ static void wyn_futex_wake(_Atomic(uint32_t)* addr, uint32_t val);
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man2/gettid.2.html
- * @see https://man7.org/linux/man-pages/man2/pipe.2.html
- * @see https://www.x.org/releases/current/doc/man/man3/XOpenDisplay.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
- * @see https://manpages.debian.org/unstable/libx11-doc/XSetErrorHandler.3.en.html
- * @see https://tronche.com/gui/x/xlib/display/display-macros.html#ConnectionNumber
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/gettid.2.html
+ * - https://man7.org/linux/man-pages/man2/pipe.2.html
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XOpenDisplay.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
+ * - https://manpages.debian.org/unstable/libx11-doc/XSetErrorHandler.3.en.html
+ * - https://tronche.com/gui/x/xlib/display/display-macros.html#ConnectionNumber
+ * @see Xcb:
+ * - 
  */
 static bool wyn_init(void* userdata)
 {
@@ -173,21 +201,32 @@ static bool wyn_init(void* userdata)
         .userdata = userdata,
         .quitting = false,
         .tid_main = 0,
-        .xlib_fd = -1,
+        .x11_fd = -1,
         .read_pipe = -1,
         .write_pipe = -1,
         .len_pipe = 0,
-        .display = NULL,
+    #if defined(WYN_X11) || defined(WYN_XLIB)
+        .xlib_display = NULL,
+    #endif
+    #if defined(WYN_X11) || defined(WYN_XCB)
+        .xcb_connection = NULL,
+    #endif
         .atoms = {},
     };
 
     wyn_state.tid_main = gettid();
 
+#if defined(WYN_X11) || defined(WYN_XLIB)
     {
-        wyn_state.display = XOpenDisplay(0);
-        if (wyn_state.display == 0) return false;
+        wyn_state.xlib_display = XOpenDisplay(0);
+        if (wyn_state.xlib_display == 0) return false;
     }
+#endif
 
+#if defined(WYN_XCB)
+#endif
+
+#if defined(WYN_XLIB)
     {
         [[maybe_unused]] const XErrorHandler prev_error = XSetErrorHandler(wyn_xlib_error_handler);
         [[maybe_unused]] const XIOErrorHandler prev_io_error = XSetIOErrorHandler(wyn_xlib_io_error_handler);
@@ -195,9 +234,11 @@ static bool wyn_init(void* userdata)
     }
 
     {        
-        wyn_state.xlib_fd = ConnectionNumber(wyn_state.display);
-        if (wyn_state.xlib_fd == -1) return false;
+        wyn_state.x11_fd = ConnectionNumber(wyn_state.display);
+        if (wyn_state.x11_fd == -1) return false;
     }
+#elif defined(WYN_X11) || defined(WYN_XCB)
+#endif
 
     {
         int pipe_fds[2];
@@ -231,9 +272,9 @@ static void wyn_terminate(void)
         [[maybe_unused]] const int res = close(wyn_state.read_pipe);
     }
 
-    if (wyn_state.display != NULL)
+    if (wyn_state.xlib_display != NULL)
     {
-        [[maybe_unused]] const int res = XCloseDisplay(wyn_state.display);
+        [[maybe_unused]] const int res = XCloseDisplay(wyn_state.xlib_display);
     }
 }
 
@@ -245,21 +286,23 @@ static void wyn_terminate(void)
  */
 static void wyn_run_native(void)
 {
-    (void)XFlush(wyn_state.display);
-    
+#if defined(WYN_XLIB)
+    (void)XFlush(wyn_state.xlib_display);
+#endif
+
     while (!wyn_quitting())
     {
-        enum { pipe_idx, xlib_idx, nfds };
+        enum { pipe_idx, x11_idx, nfds };
 
         struct pollfd fds[nfds] = {
             [pipe_idx] = { .fd = wyn_state.read_pipe, .events = POLLIN, .revents = 0 },
-            [xlib_idx] = { .fd = wyn_state.xlib_fd, .events = POLLIN, .revents = 0 },
+            [x11_idx] = { .fd = wyn_state.x11_fd, .events = POLLIN, .revents = 0 },
         };
         const int res_poll = poll(fds, nfds, -1);
         WYN_ASSERT((res_poll != -1) && (res_poll != 0));
 
         const short pipe_events = fds[pipe_idx].revents;
-        const short xlib_events = fds[xlib_idx].revents;
+        const short x11_events = fds[x11_idx].revents;
 
         if (pipe_events != 0)
         {
@@ -268,11 +311,11 @@ static void wyn_run_native(void)
             wyn_clear_exec_events(false);
         }
         
-        if (xlib_events != 0)
+        if (x11_events != 0)
         {
-            if (xlib_events != POLLIN) WYN_LOG("[POLL-XLIB] %04hX\n", xlib_events);
-            WYN_ASSERT(xlib_events == POLLIN);
-            wyn_clear_xlib_events();
+            if (x11_events != POLLIN) WYN_LOG("[POLL-XLIB] %04hX\n", x11_events);
+            WYN_ASSERT(x11_events == POLLIN);
+            wyn_clear_x11_events();
         }
     }
 
@@ -283,9 +326,11 @@ static void wyn_run_native(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_sub
- * @see https://man7.org/linux/man-pages/man2/read.2.html
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_load
+ * - https://en.cppreference.com/w/c/atomic/atomic_fetch_sub
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/read.2.html
  */
 static void wyn_clear_exec_events(const bool cancel)
 {
@@ -315,22 +360,22 @@ static void wyn_clear_exec_events(const bool cancel)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XNextEvent.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XAnyEvent.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
- * @see https://tronche.com/gui/x/icccm/sec-4.html#WM_PROTOCOLS
- * @see https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XNextEvent.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XAnyEvent.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
+ * - https://tronche.com/gui/x/icccm/sec-4.html#WM_PROTOCOLS
+ * - https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
  */
-static void wyn_clear_xlib_events(void)
+static void wyn_clear_x11_events(void)
 {
-    #define WYN_EVT_LOG(...)
-    //#define WYN_EVT_LOG(...) WYN_LOG(__VA_ARGS__)
+    #define WYN_EVT_LOG(...) // WYN_LOG(__VA_ARGS__)
 
-    while (XPending(wyn_state.display) > 0)
+    while (XPending(wyn_state.xlib_display) > 0)
     {       
         XEvent event;
-        (void)XNextEvent(wyn_state.display, &event);
+        (void)XNextEvent(wyn_state.xlib_display, &event);
 
         WYN_EVT_LOG("[X-EVENT] (%2d) %s\n", event.type, wyn_xevent_name(event.type));
 
@@ -425,6 +470,8 @@ static const char* wyn_xevent_name(int type)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+#if defined(WYN_XLIB)
+
 /**
  * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
@@ -436,8 +483,6 @@ static int wyn_xlib_error_handler(Display* display [[maybe_unused]], XErrorEvent
     return 0;
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------
-
 /**
  * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
@@ -447,8 +492,6 @@ static int wyn_xlib_io_error_handler(Display* display [[maybe_unused]])
     return 0;
 }
 
-// --------------------------------------------------------------------------------------------------------------------------------
-
 /**
  * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
@@ -457,6 +500,8 @@ static void wyn_xlib_io_error_exit_handler(Display* display [[maybe_unused]], vo
     WYN_LOG("[XLIB IO ERROR EXIT]\n");
     wyn_quit();
 }
+
+#endif
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -601,26 +646,14 @@ extern wyn_exec_t wyn_execute_async(void (*func)(void*), void* arg)
  */
 extern wyn_window_t wyn_open_window(void)
 {
-    Screen* const screen = DefaultScreenOfDisplay(wyn_state.display);
+    Screen* const screen = DefaultScreenOfDisplay(wyn_state.xlib_display);
     const Window root = RootWindowOfScreen(screen);
 
     const unsigned long mask = CWEventMask;
     XSetWindowAttributes attr = {
         .event_mask = NoEventMask
-            | KeyPressMask
-            | KeyReleaseMask
-            | ButtonPressMask
-            | ButtonReleaseMask
-            | EnterWindowMask
-            | LeaveWindowMask
-            | PointerMotionMask
-            | PointerMotionHintMask
-            | Button1MotionMask
-            | Button2MotionMask
-            | Button3MotionMask
-            | Button4MotionMask
-            | Button5MotionMask
-            | ButtonMotionMask
+            | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | EnterWindowMask | LeaveWindowMask
+            | PointerMotionMask | PointerMotionHintMask | Button1MotionMask | Button2MotionMask | Button3MotionMask | Button4MotionMask | Button5MotionMask | ButtonMotionMask
             | KeymapStateMask
             | ExposureMask
             | VisibilityChangeMask
@@ -635,7 +668,7 @@ extern wyn_window_t wyn_open_window(void)
     };
 
     const Window xWnd = XCreateWindow(
-        wyn_state.display, root,
+        wyn_state.xlib_display, root,
         0, 0, 640, 480,
         0, CopyFromParent, InputOutput, CopyFromParent,
         mask, &attr
@@ -643,14 +676,16 @@ extern wyn_window_t wyn_open_window(void)
 
     if (xWnd != 0)
     {
+    #if defined(WYN_XLIB)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
-        const Status res_atoms = XInternAtoms(wyn_state.display, wyn_atom_names, wyn_atom_len, true, wyn_state.atoms);
+        const Status res_atoms = XInternAtoms(wyn_state.xlib_display, wyn_atom_names, wyn_atom_len, true, wyn_state.atoms);
         #pragma GCC diagnostic pop
         WYN_ASSERT(res_atoms != 0);
 
-        const Status res_proto = XSetWMProtocols(wyn_state.display, xWnd, wyn_state.atoms, wyn_atom_len);
+        const Status res_proto = XSetWMProtocols(wyn_state.xlib_display, xWnd, wyn_state.atoms, wyn_atom_len);
         WYN_ASSERT(res_proto != 0);
+    #endif
     }
 
     return (wyn_window_t)xWnd;
@@ -665,7 +700,7 @@ extern void wyn_close_window(wyn_window_t window)
 {
     const Window xWnd = (Window)window;
 
-    [[maybe_unused]] const int res = XDestroyWindow(wyn_state.display, xWnd);
+    [[maybe_unused]] const int res = XDestroyWindow(wyn_state.xlib_display, xWnd);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -677,7 +712,7 @@ extern void wyn_show_window(wyn_window_t window)
 {
     const Window xWnd = (Window)window;
     
-    [[maybe_unused]] const int res = XMapRaised(wyn_state.display, xWnd);
+    [[maybe_unused]] const int res = XMapRaised(wyn_state.xlib_display, xWnd);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -689,7 +724,7 @@ extern void wyn_hide_window(wyn_window_t window)
 {
     const Window xWnd = (Window)window;
 
-    [[maybe_unused]] const int res = XUnmapWindow(wyn_state.display, xWnd);
+    [[maybe_unused]] const int res = XUnmapWindow(wyn_state.xlib_display, xWnd);
 }
 
 // ================================================================================================================================

@@ -6,6 +6,7 @@
     #include <Windows.h>
     #include <gl/GL.h>
 #elif defined(WYG_GLX)
+    #include <X11/Xlib-xcb.h>
     #include <GL/glx.h>
     #include <GL/gl.h>
 #elif defined(WYG_EGL)
