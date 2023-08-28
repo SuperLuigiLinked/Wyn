@@ -9,22 +9,30 @@
     #define _GNU_SOURCE
 #endif
 
+#include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
 
+#include <sys/types.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
-#include <sys/types.h>
+#if defined(__APPLE__)
+    #include <dispatch/dispatch.h>
+#else
+    #include <semaphore.h>
+#endif
 
 // ================================================================================================================================
 //  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/abort.3.html
- * @see Apple: https://www.manpagez.com/man/3/abort/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/abort.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/abort/
  */
 #define WYT_ASSERT(expr) if (expr) {} else abort()
 
@@ -41,8 +49,10 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/clock_gettime.3.html
- * @see Apple: https://www.manpagez.com/man/3/clock_gettime_nsec_np/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/clock_gettime.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/clock_gettime_nsec_np/
  */
 extern wyt_time_t wyt_nanotime(void)
 {
@@ -63,7 +73,8 @@ extern wyt_time_t wyt_nanotime(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Apple: https://www.manpagez.com/man/2/nanosleep/
+ * @see Apple:
+ * - https://www.manpagez.com/man/2/nanosleep/
  */
 extern void wyt_nanosleep_for(wyt_duration_t duration)
 {
@@ -89,7 +100,8 @@ extern void wyt_nanosleep_for(wyt_duration_t duration)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man2/clock_nanosleep.2.html
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/clock_nanosleep.2.html
  */
 extern void wyt_nanosleep_until(wyt_time_t timepoint)
 {
@@ -113,8 +125,10 @@ extern void wyt_nanosleep_until(wyt_time_t timepoint)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man2/sched_yield.2.html
- * @see Posix: https://man7.org/linux/man-pages/man3/sched_yield.3p.html
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/sched_yield.2.html
+ * @see Posix:
+ * - https://man7.org/linux/man-pages/man3/sched_yield.3p.html
  */
 extern void wyt_yield(void)
 {
@@ -124,8 +138,10 @@ extern void wyt_yield(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/pthread_create.3.html
- * @see Apple: https://www.manpagez.com/man/3/pthread_create/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/pthread_create.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/pthread_create/
  */
 extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 {
@@ -142,8 +158,10 @@ extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/pthread_exit.3.html
- * @see Apple: https://www.manpagez.com/man/3/pthread_exit/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/pthread_exit.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/pthread_exit/
  */
 WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
 {
@@ -153,8 +171,10 @@ WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/pthread_join.3.html
- * @see Apple: https://www.manpagez.com/man/3/pthread_join/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/pthread_join.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/pthread_join/
  */
 extern wyt_retval_t wyt_join(wyt_thread_t thread)
 {
@@ -167,8 +187,10 @@ extern wyt_retval_t wyt_join(wyt_thread_t thread)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man3/pthread_detach.3.html
- * @see Apple: https://www.manpagez.com/man/3/pthread_detach/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/pthread_detach.3.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/pthread_detach/
  */
 extern void wyt_detach(wyt_thread_t thread)
 {
@@ -179,8 +201,10 @@ extern void wyt_detach(wyt_thread_t thread)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see Linux: https://man7.org/linux/man-pages/man2/gettid.2.html
- * @see Apple: https://www.manpagez.com/man/3/pthread_threadid_np/
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/gettid.2.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/3/pthread_threadid_np/
  */
 extern wyt_tid_t wyt_tid(void)
 {
@@ -196,9 +220,124 @@ extern wyt_tid_t wyt_tid(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/getpid.2.html
+ * @see Apple:
+ * - https://www.manpagez.com/man/2/getpid/
+ */
 extern wyt_pid_t wyt_pid(void)
 {
     return (wyt_pid_t)getpid();   
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/sem_init.3.html
+ * @see Apple:
+ * - https://developer.apple.com/documentation/dispatch/1452955-dispatch_semaphore_create
+ */
+extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
+{
+#if defined(__APPLE__)
+#else
+    if (maximum > SEM_VALUE_MAX) return NULL;
+
+    sem_t* const ptr = malloc(sizeof(sem_t));
+    if (ptr == NULL) return NULL;
+
+    const int res = sem_init(ptr, 0, initial);
+    WYT_ASSERT(res == 0);
+
+    return (wyt_sem_t)ptr;
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/sem_destroy.3.html
+ * @see Apple:
+ * - https://developer.apple.com/documentation/dispatch/1496328-dispatch_release
+ */
+extern void wyt_sem_destroy(wyt_sem_t sem)
+{
+#if defined(__APPLE__)
+#else
+    sem_t* const ptr = (sem_t*)sem;
+
+    const int res = sem_destroy(ptr);
+    WYT_ASSERT(res == 0);
+
+    free(ptr);
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/sem_post.3.html
+ * @see Apple:
+ * - https://developer.apple.com/documentation/dispatch/1452919-dispatch_semaphore_signal
+ */
+extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
+{
+#if defined(__APPLE__)
+#else
+    sem_t* const ptr = (sem_t*)sem;
+
+    const int res = sem_post(ptr);
+    return res == 0;
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/sem_wait.3.html
+ * @see Apple:
+ * - https://developer.apple.com/documentation/dispatch/1453087-dispatch_semaphore_wait
+ */
+extern void wyt_sem_acquire(wyt_sem_t sem)
+{
+#if defined(__APPLE__)
+#else
+    sem_t* const ptr = (sem_t*)sem;
+
+    int res;
+    do { res = sem_wait(ptr); } while ((res != 0) && (errno == EINTR));
+
+    WYT_ASSERT(res == 0);
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/sem_wait.3.html
+ * @see Apple:
+ * - https://developer.apple.com/documentation/dispatch/1453087-dispatch_semaphore_wait
+ */
+extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem)
+{
+#if defined(__APPLE__)
+#else
+    sem_t* const ptr = (sem_t*)sem;
+
+    int res;
+    do { res = sem_trywait(ptr); } while ((res != 0) && (errno == EINTR));
+
+    if (res == 0) return true;
+    
+    WYT_ASSERT(errno == EAGAIN);
+    return false;
+#endif
 }
 
 // ================================================================================================================================

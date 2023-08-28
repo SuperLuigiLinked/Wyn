@@ -9,11 +9,6 @@
 #ifndef WYT_H
 #define WYT_H
 
-/**
- * @see Linux: https://man7.org/linux/man-pages/man7/sem_overview.7.htmlposix%20semaphore
- * @see Apple: https://developer.apple.com/documentation/dispatch/dispatch_semaphore
- */
-
 // ================================================================================================================================
 //  Macros
 // --------------------------------------------------------------------------------------------------------------------------------
