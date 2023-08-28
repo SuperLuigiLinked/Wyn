@@ -239,9 +239,9 @@ extern wyt_pid_t wyt_pid(void)
  * @see Apple:
  * - https://developer.apple.com/documentation/dispatch/1452955-dispatch_semaphore_create
  */
-extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
+extern wyt_sem_t wyt_sem_create(int maximum, int initial)
 {
-    WYT_ASSERT(initial <= maximum);
+    if ((maximum < initial) || (maximum < 0) || (initial < 0)) return NULL;
 
 #if defined(__APPLE__)
     const dispatch_semaphore_t obj = dispatch_semaphore_create((intptr_t)initial);
@@ -253,7 +253,7 @@ extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
     sem_t* const ptr = malloc(sizeof(sem_t));
     if (ptr == NULL) return NULL;
 
-    const int res = sem_init(ptr, 0, initial);
+    const int res = sem_init(ptr, 0, (unsigned int)initial);
     WYT_ASSERT(res == 0);
 
     return (wyt_sem_t)ptr;
@@ -298,7 +298,7 @@ extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
     const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
 
     [[maybe_unused]] const intptr_t res = dispatch_semaphore_signal(obj);
-    return true;
+    return true; // Assume success (did not overflow)
 #else
     sem_t* const ptr = (sem_t*)sem;
 

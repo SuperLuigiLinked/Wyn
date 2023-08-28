@@ -226,8 +226,10 @@ extern wyt_pid_t wyt_pid(void)
  * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsemaphoreexa
  */
-extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
+extern wyt_sem_t wyt_sem_create(int maximum, int initial)
 {
+    if ((maximum < initial) || (maximum < 0) || (initial < 0)) return NULL;
+    
     const HANDLE handle = CreateSemaphoreExW(NULL, (LONG)initial, (LONG)maximum, NULL, 0, SYNCHRONIZE | SEMAPHORE_MODIFY_STATE);
     return (wyt_sem_t)handle;
 }

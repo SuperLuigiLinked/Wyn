@@ -190,18 +190,19 @@ extern wyt_pid_t wyt_pid(void);
 
 /**
  * @brief Attempts to create a new semaphore.
- * @param maximum The suggested maximum value the internal counter can have.
- * @param initial The initial value of the internal counter.
+ * @param maximum [postive] The suggested maximum value the internal counter can have.
+ * @param initial [non-negative] The initial value of the internal counter.
  * @return [nullable] NON-NULL handle to the new semaphore on success, NULL on failure.
  * @warning If successful, the returned handle must be passed to `wyt_sem_destroy` in order to not leak resources.
+ * @warning The actual maximum value may potentially be greater than the passed in value.
  */
-extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial);
+extern wyt_sem_t wyt_sem_create(int maximum, int initial);
 
 /**
  * @brief Destroys a semaphore.
  * @param[in] sem [non-null] Handle to a semaphore.
  * @warning After calling this function, the semaphore handle is invalid and must not be used.
- * @warning The internal counter MUST be at its initial value when destroyed.
+ * @warning On some platforms, the internal counter must be greater than or equal its initial value when destroyed, otherwise an error occurs.
  */
 extern void wyt_sem_destroy(wyt_sem_t sem);
 
@@ -209,6 +210,7 @@ extern void wyt_sem_destroy(wyt_sem_t sem);
  * @brief Attempts to increment the internal counter for a semaphore.
  * @param[in] sem [non-null] Handle to a semaphore.
  * @return `true` if successful, `false` otherwise.
+ * @warning On some platforms, the internal counter can be incremented past the suggested maximum.
  */
 extern WYT_BOOL wyt_sem_release(wyt_sem_t sem);
 
