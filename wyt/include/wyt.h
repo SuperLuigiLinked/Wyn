@@ -9,24 +9,30 @@
 #ifndef WYT_H
 #define WYT_H
 
+/**
+ * @see Win32: https://learn.microsoft.com/en-us/windows/win32/sync/using-semaphore-objects
+ * @see Linux: https://man7.org/linux/man-pages/man7/sem_overview.7.htmlposix%20semaphore
+ * @see Apple: https://developer.apple.com/documentation/dispatch/dispatch_semaphore
+ */
+
 // ================================================================================================================================
 //  Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
-#ifdef __cplusplus
-    #if __cplusplus >= 201103L              // C++11
-        #define WYT_NORETURN [[noreturn]]
-    #else
-        #define WYT_NORETURN
-    #endif
+#if defined(__cplusplus) && (__cplusplus >= 201103L)                // C++11
+    #define WYT_NORETURN [[noreturn]]
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)    // C23
+    #define WYT_NORETURN [[noreturn]]
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)    // C11
+    #define WYT_NORETURN _Noreturn
 #else
-    #if __STDC_VERSION__ >= 202311L         // C23
-        #define WYT_NORETURN [[noreturn]]
-    #elif __STDC_VERSION__ >= 201112L       // C11
-        #define WYT_NORETURN _Noreturn
-    #else
-        #define WYT_NORETURN
-    #endif
+    #define WYT_NORETURN
+#endif
+
+#if defined(__cplusplus)    // C++
+    #define WYT_BOOL bool
+#else                       // C
+    #define WYT_BOOL _Bool
 #endif
 
 // ================================================================================================================================
@@ -47,18 +53,6 @@ typedef signed long long wyt_duration_t;
  * @brief Handle to a Thread.
  */
 typedef void* wyt_thread_t;
-
-/**
- * @brief Integer capable of holding a Thread Identifier.
- * @details A Thread ID is guaranteed to be unique at least as long as the thread is still running.
- */
-typedef unsigned long long wyt_tid_t;
-
-/**
- * @brief Integer capable of holding a Process Identifier.
- * @details A Process ID is guaranteed to be unique at least as long as the process is still running.
- */
-typedef unsigned long long wyt_pid_t;
 
 #ifdef _WIN32
     #ifdef _VC_NODEFAULTLIB
@@ -105,6 +99,23 @@ typedef unsigned long long wyt_pid_t;
  */
 typedef wyt_retval_t (WYT_ENTRY* wyt_entry_t)(void*);
 
+/**
+ * @brief Integer capable of holding a Thread Identifier.
+ * @details A Thread ID is guaranteed to be unique at least as long as the thread is still running.
+ */
+typedef unsigned long long wyt_tid_t;
+
+/**
+ * @brief Integer capable of holding a Process Identifier.
+ * @details A Process ID is guaranteed to be unique at least as long as the process is still running.
+ */
+typedef unsigned long long wyt_pid_t;
+
+/**
+ * @brief Handle to a Semaphore.
+ */
+typedef void* wyt_sem_t;
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -143,7 +154,7 @@ extern void wyt_yield(void);
  * @param func [non-null] The entry-function to call on the new thread.
  * @param arg  [nullable] The argument to pass to the thread's entry-function.
  * @return [nullable] NON-NULL handle to the new thread on success, NULL on failure.
- * @warning If successful, the returned thread handle must either be passed to `wyt_join` or `wyt_detach` in order to not leak resources.
+ * @warning If successful, the returned handle must be passed to either `wyt_join` or `wyt_detach` in order to not leak resources.
  */
 extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg);
 
@@ -182,6 +193,42 @@ extern wyt_tid_t wyt_tid(void);
  * @return The Current Process's ID.
  */
 extern wyt_pid_t wyt_pid(void);
+
+/**
+ * @brief Attempts to create a new semaphore.
+ * @param maximum The suggested maximum value the internal counter can have.
+ * @param initial The initial value of the internal counter.
+ * @return [nullable] NON-NULL handle to the new semaphore on success, NULL on failure.
+ * @warning If successful, the returned handle must be passed to `wyt_sem_destroy` in order to not leak resources.
+ */
+extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial);
+
+/**
+ * @brief Destroys a semaphore.
+ * @param[in] sem [non-null] Handle to a semaphore.
+ * @warning After calling this function, the semaphore handle is invalid and must not be used.
+ */
+extern void wyt_sem_destroy(wyt_sem_t sem);
+
+/**
+ * @brief Attempts to increment the internal counter for a semaphore.
+ * @param[in] sem [non-null] Handle to a semaphore.
+ * @return `true` if successful, `false` otherwise.
+ */
+extern WYT_BOOL wyt_sem_release(wyt_sem_t sem);
+
+/**
+ * @brief Decrements the internal counter for a semaphore, blocking until successful.
+ * @param[in] sem [non-null] Handle to a semaphore.
+ */
+extern void wyt_sem_acquire(wyt_sem_t sem);
+
+/**
+ * @brief Attempts to decrement the internal counter for a semaphore.
+ * @param[in] sem [non-null] Handle to a semaphore.
+ * @return `true` if successful, `false` otherwise. 
+ */
+extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem);
 
 /**
  * @brief Scales an Unsigned Integer `val` by a Fraction `num / den`.
