@@ -11,7 +11,7 @@
 struct Update
 {
     Common* common;
-
+    
     uint64_t frame;
     wyt_time_t frame_ts;
     wyt_time_t frame_te;

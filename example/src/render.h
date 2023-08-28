@@ -15,6 +15,7 @@
 struct Render
 {
     Common* common;
+    const Update* state;
 
     uint64_t frame;
     wyt_time_t frame_ts;

@@ -13,6 +13,10 @@ struct Common
     wyt_time_t epoch;
 
     wyn_window_t window;
+
+    _Atomic(const Update*) state_ptr;
+    wyt_sem_t sem_u2r;
+    wyt_sem_t sem_r2u;
 };
 
 // ================================================================================================================================

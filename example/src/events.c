@@ -8,40 +8,58 @@
 
 // ================================================================================================================================
 
-static void events_init(Events* const restrict events)
-{
-    events->common->window = wyn_open_window();
-    ASSERT(events->common->window != 0);
+static void events_init(Events* const restrict self)
+{  
+    self->common->window = wyn_open_window();
+    ASSERT(self->common->window != 0);
 
-    events->common->epoch = wyt_nanotime();
+    self->common->sem_u2r = wyt_sem_create(1, 0);
+    ASSERT(self->common->sem_u2r != 0);
 
-    events->update_thread = wyt_spawn(update_loop, events->common);
-    ASSERT(events->update_thread != 0);
+    self->common->sem_r2u = wyt_sem_create(1, 0);
+    ASSERT(self->common->sem_r2u != 0);
 
-    events->render_thread = wyt_spawn(render_loop, events->common);
-    ASSERT(events->render_thread != 0);
+    self->common->epoch = wyt_nanotime();
 
-    wyn_show_window(events->common->window);
+    self->update_thread = wyt_spawn(update_loop, self->common);
+    ASSERT(self->update_thread != 0);
+
+    self->render_thread = wyt_spawn(render_loop, self->common);
+    ASSERT(self->render_thread != 0);
+
+    wyn_show_window(self->common->window);
 }
 
-static void events_deinit(Events* const restrict events)
+static void events_deinit(Events* const restrict self)
 {
-    if (events->render_thread != 0)
+    if (self->render_thread != 0)
     {
-        (void)wyt_join(events->render_thread);
-        events->render_thread = 0;
+        (void)wyt_join(self->render_thread);
+        self->render_thread = 0;
     }
 
-    if (events->update_thread != 0)
+    if (self->update_thread != 0)
     {
-        (void)wyt_join(events->update_thread);
-        events->update_thread = 0;
+        (void)wyt_join(self->update_thread);
+        self->update_thread = 0;
     }
 
-    if (events->common->window != 0)
+    if (self->common->sem_r2u != 0)
     {
-        wyn_close_window(events->common->window);
-        events->common->window = 0;
+        wyt_sem_destroy(self->common->sem_r2u);
+        self->common->sem_r2u = 0;
+    }
+
+    if (self->common->sem_u2r != 0)
+    {
+        wyt_sem_destroy(self->common->sem_u2r);
+        self->common->sem_u2r = 0;
+    }
+
+    if (self->common->window != 0)
+    {
+        wyn_close_window(self->common->window);
+        self->common->window = 0;
     }
 }
 
@@ -49,26 +67,26 @@ static void events_deinit(Events* const restrict events)
 
 extern void wyn_on_start(void* userdata)
 {
-    Events* const restrict events = userdata;
-    LOG("[EVENTS] (%"PRIu64") START\n", ++events->events);
+    Events* const restrict self = userdata;
+    LOG("[EVENTS] (%"PRIu64") START\n", ++self->events);
 
-    events_init(events);
+    events_init(self);
 }
 
 extern void wyn_on_stop(void* userdata)
 {
-    Events* const restrict events = userdata;
-    LOG("[EVENTS] (%"PRIu64") STOP\n", ++events->events);
+    Events* const restrict self = userdata;
+    LOG("[EVENTS] (%"PRIu64") STOP\n", ++self->events);
     
-    events_deinit(events);
+    events_deinit(self);
 }
 
 extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 {
-    Events* const restrict events = userdata;
-    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++events->events);
+    Events* const restrict self = userdata;
+    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->events);
 
-    if (window == events->common->window)
+    if (window == self->common->window)
     {
         wyn_quit();
     }
@@ -76,10 +94,10 @@ extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 
 extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
 {
-    Events* const restrict events = userdata;
-    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++events->events);
+    Events* const restrict self = userdata;
+    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++self->events);
 
-    if (window == events->common->window)
+    if (window == self->common->window)
     {
         (void)window;
     }
@@ -90,9 +108,10 @@ extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
 extern void events_loop(void)
 {
     Common common = {};
+
     {
-        Events events = { .common = &common };
-        wyn_run(&events);
+        Events self = { .common = &common };
+        wyn_run(&self);
     }
 }
 
