@@ -261,7 +261,7 @@ extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
 
 /**
  * @see Win32:
- * - 
+ * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject 
  */
 extern void wyt_sem_acquire(wyt_sem_t sem)
 {
@@ -274,7 +274,7 @@ extern void wyt_sem_acquire(wyt_sem_t sem)
 
 /**
  * @see Win32:
- * - 
+ * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
  */
 extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem)
 {
