@@ -10,7 +10,6 @@
 #define WYT_H
 
 /**
- * @see Win32: https://learn.microsoft.com/en-us/windows/win32/sync/using-semaphore-objects
  * @see Linux: https://man7.org/linux/man-pages/man7/sem_overview.7.htmlposix%20semaphore
  * @see Apple: https://developer.apple.com/documentation/dispatch/dispatch_semaphore
  */
