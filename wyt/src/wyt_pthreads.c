@@ -241,7 +241,12 @@ extern wyt_pid_t wyt_pid(void)
  */
 extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
 {
+    WYT_ASSERT(initial <= maximum);
+
 #if defined(__APPLE__)
+    const dispatch_semaphore_t obj = dispatch_semaphore_create((intptr_t)initial);
+
+    return (wyt_sem_t)obj;
 #else
     if (maximum > SEM_VALUE_MAX) return NULL;
 
@@ -266,6 +271,9 @@ extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial)
 extern void wyt_sem_destroy(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
+    const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
+
+    dispatch_release(obj);
 #else
     sem_t* const ptr = (sem_t*)sem;
 
@@ -287,6 +295,10 @@ extern void wyt_sem_destroy(wyt_sem_t sem)
 extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
+    const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
+
+    [[maybe_unused]] const intptr_t res = dispatch_semaphore_signal(obj);
+    return true;
 #else
     sem_t* const ptr = (sem_t*)sem;
 
@@ -306,6 +318,10 @@ extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
 extern void wyt_sem_acquire(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
+    const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
+
+    const intptr_t res = dispatch_semaphore_wait(obj, DISPATCH_TIME_FOREVER);
+    WYT_ASSERT(res == 0);
 #else
     sem_t* const ptr = (sem_t*)sem;
 
@@ -327,6 +343,10 @@ extern void wyt_sem_acquire(wyt_sem_t sem)
 extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
+    const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
+
+    const intptr_t res = dispatch_semaphore_wait(obj, DISPATCH_TIME_NOW);
+    return res == 0;
 #else
     sem_t* const ptr = (sem_t*)sem;
 

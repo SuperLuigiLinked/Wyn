@@ -201,6 +201,7 @@ extern wyt_sem_t wyt_sem_create(unsigned int maximum, unsigned int initial);
  * @brief Destroys a semaphore.
  * @param[in] sem [non-null] Handle to a semaphore.
  * @warning After calling this function, the semaphore handle is invalid and must not be used.
+ * @warning The internal counter MUST be at its initial value when destroyed.
  */
 extern void wyt_sem_destroy(wyt_sem_t sem);
 
