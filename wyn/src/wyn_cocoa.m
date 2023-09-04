@@ -57,7 +57,7 @@ struct wyn_state_t
 /**
  * @brief Static instance of all Wyn state.
  */
-static struct wyn_state_t wyn_state = {};
+static struct wyn_state_t wyn_state;
 
 // --------------------------------------------------------------------------------------------------------------------------------
 

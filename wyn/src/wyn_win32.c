@@ -61,7 +61,7 @@ struct wyn_state_t
  * @details Because Wyn can only be used on the Main Thread, it is safe to have static-storage state.
  *          This state must be global so it can be reached by callbacks on certain platforms.
  */
-static struct wyn_state_t wyn_state = {};
+static struct wyn_state_t wyn_state;
 
 /**
  * @brief Struct for passing callbacks with arguments.

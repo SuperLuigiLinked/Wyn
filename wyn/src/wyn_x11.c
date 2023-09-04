@@ -54,11 +54,12 @@
 /**
  * @brief Indices for Wyn X-Atoms.
  */
-enum wyn_atom {
+enum wyn_atom_t {
     wyn_atom_WM_PROTOCOLS,
     wyn_atom_WM_DELETE_WINDOW,
     wyn_atom_len,
 };
+typedef enum wyn_atom_t wyn_atom_t;
 
 /**
  * @brief Names for Wyn X-Atoms.
@@ -103,7 +104,7 @@ struct wyn_state_t
  * @details Because Wyn can only be used on the Main Thread, it is safe to have static-storage state.
  *          This state must be global so it can be reached by callbacks on certain platforms.
  */
-static struct wyn_state_t wyn_state = {};
+static struct wyn_state_t wyn_state;
 
 /**
  * @brief Struct for passing callbacks with arguments.
@@ -223,21 +224,33 @@ static bool wyn_init(void* userdata)
     }
 #endif
 
-#if defined(WYN_XCB)
+#if defined(WYN_X11)
+    {
+        wyn_state.xcb_connection = XGetXCBConnection(wyn_state.xlib_display);
+        if (wyn_state.xcb_connection == 0) return false;
+        if (xcb_connection_has_error(wyn_state.xcb_connection)) return false;
+
+        XSetEventQueueOwner(wyn_state.xlib_display, XCBOwnsEventQueue);
+    }
+#elif defined(WYN_XCB)
+    {
+        wyn_state.xcb_connection = xcb_connect(0, 0);
+        if (wyn_state.xcb_connection == 0) return false;
+        if (xcb_connection_has_error(wyn_state.xcb_connection)) return false;
+    }
 #endif
 
 #if defined(WYN_XLIB)
     {
         [[maybe_unused]] const XErrorHandler prev_error = XSetErrorHandler(wyn_xlib_error_handler);
         [[maybe_unused]] const XIOErrorHandler prev_io_error = XSetIOErrorHandler(wyn_xlib_io_error_handler);
-        XSetIOErrorExitHandler(wyn_state.display, wyn_xlib_io_error_exit_handler, NULL);
+        XSetIOErrorExitHandler(wyn_state.xlib_display, wyn_xlib_io_error_exit_handler, NULL);
     }
 
     {        
-        wyn_state.x11_fd = ConnectionNumber(wyn_state.display);
+        wyn_state.x11_fd = ConnectionNumber(wyn_state.xlib_display);
         if (wyn_state.x11_fd == -1) return false;
     }
-#elif defined(WYN_X11) || defined(WYN_XCB)
 #endif
 
     {
@@ -272,10 +285,19 @@ static void wyn_terminate(void)
         [[maybe_unused]] const int res = close(wyn_state.read_pipe);
     }
 
+#if defined(WYN_XCB)
+    if (wyn_state.xcb_connection != NULL)
+    {
+        xcb_disconnect(wyn_state.xcb_connection);
+    }
+#endif
+
+#if defined(WYN_X11) || defined(WYN_XLIB)
     if (wyn_state.xlib_display != NULL)
     {
         [[maybe_unused]] const int res = XCloseDisplay(wyn_state.xlib_display);
     }
+#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -685,6 +707,26 @@ extern wyn_window_t wyn_open_window(void)
 
         const Status res_proto = XSetWMProtocols(wyn_state.xlib_display, xWnd, wyn_state.atoms, wyn_atom_len);
         WYN_ASSERT(res_proto != 0);
+    #elif defined(WYN_X11) || defined(WYN_XCB)
+        for (size_t idx = 0; idx < wyn_atom_len; ++idx)
+        {
+            const char* const dat = wyn_atom_names[idx];
+            const size_t len = strlen(dat);
+
+            xcb_intern_atom_cookie_t cookie = xcb_intern_atom(wyn_state.xcb_connection, true, (uint16_t)len, dat);
+
+            xcb_generic_error_t* error = NULL;
+            xcb_intern_atom_reply_t* reply = xcb_intern_atom_reply(wyn_state.xcb_connection, cookie, &error);
+            
+            WYN_ASSERT(error == NULL);
+            WYN_ASSERT(reply != NULL);
+
+            {
+                wyn_state.atoms[idx] = reply->atom;
+            }
+
+            free(reply);
+        }
     #endif
     }
 
