@@ -105,14 +105,10 @@ extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
 
 // ================================================================================================================================
 
-extern void events_loop(void)
+extern void events_loop(void* common)
 {
-    Common common = {};
-
-    {
-        Events self = { .common = &common };
-        wyn_run(&self);
-    }
+    Events self = { .common = common };
+    wyn_run(&self);
 }
 
 // ================================================================================================================================

@@ -39,9 +39,9 @@ static void update_deinit(Update* const restrict self)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern wyt_retval_t WYT_ENTRY update_loop(void* arg)
+extern wyt_retval_t WYT_ENTRY update_loop(void* common)
 {
-    Update self = { .common = arg };
+    Update self = { .common = common };
     update_init(&self);
 
     while (!wyn_quitting())

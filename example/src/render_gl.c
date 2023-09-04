@@ -35,9 +35,9 @@ static void render_deinit(Render* const restrict self)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern wyt_retval_t WYT_ENTRY render_loop(void* arg)
+extern wyt_retval_t WYT_ENTRY render_loop(void* common)
 {
-    Render self = { .common = arg };
+    Render self = { .common = common };
     render_init(&self);
 
     while (!wyn_quitting())

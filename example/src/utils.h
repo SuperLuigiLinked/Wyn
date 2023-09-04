@@ -36,8 +36,9 @@ typedef struct Render Render;
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void events_loop(void);
-extern wyt_retval_t WYT_ENTRY update_loop(void* arg);
-extern wyt_retval_t WYT_ENTRY render_loop(void* arg);
+extern void app_run(void);
+extern void events_loop(void* common);
+extern wyt_retval_t WYT_ENTRY update_loop(void* common);
+extern wyt_retval_t WYT_ENTRY render_loop(void* common);
 
 // ================================================================================================================================
