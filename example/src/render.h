@@ -6,8 +6,9 @@
 
 #include "utils.h"
 
-#ifdef WYN_EXAMPLE_GL
-#   include <wyg_gl.h>
+#if defined(WYN_EXAMPLE_GL)
+#   include <wyg.h>
+#   include <GL/glcorearb.h>
 #endif
 
 // ================================================================================================================================
@@ -21,14 +22,8 @@ struct Render
     wyt_time_t frame_ts;
     wyt_time_t frame_te;
 
-#if defined(WYG_WGL)
-    HDC hdc;
-    HGLRC hglrc;
-#elif defined(WYG_EGL)
-    EGLDisplay display;
-    EGLConfig config;
-    EGLContext context;
-    EGLSurface surface;
+#if defined(WYN_EXAMPLE_GL)
+    wyg_context_t* context;
 #endif
 };
 

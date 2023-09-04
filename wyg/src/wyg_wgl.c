@@ -2,14 +2,19 @@
  * @file wyg_wgl.c
  */
  
-#include "wyg_gl.h"
+#include "wyg.h"
+
+#include <Windows.h>
+#include <gl/GL.h>
+#include <GL/wgl.h>
+#include <GL/wglext.h>
 
 // ================================================================================================================================
 
-extern void wyg_gl_create_context(void) {}
+extern wyg_context_t* wyg_create_context(wyg_window_t window);
 
-extern void wyg_gl_make_current(void) {}
+extern void wyg_make_current(wyg_context_t* context);
 
-extern void wyg_gl_destroy_context(void) {}
+extern void wyg_destroy_context(wyg_context_t* context);
 
 // ================================================================================================================================
