@@ -157,6 +157,9 @@ static bool wyn_init(void* userdata)
     }
 
     {
+        const HICON icon = LoadIcon(NULL, IDI_APPLICATION);
+        const HCURSOR cursor = LoadCursor(NULL, IDC_ARROW);
+
         const WNDCLASSEXW wnd_class = {
             .cbSize = sizeof(WNDCLASSEXW),
             .style = CS_HREDRAW | CS_VREDRAW,
@@ -164,8 +167,8 @@ static bool wyn_init(void* userdata)
             .cbClsExtra = 0,
             .cbWndExtra = 0,
             .hInstance = wyn_state.hinstance,
-            .hIcon = LoadIcon(wyn_state.hinstance, IDI_APPLICATION),
-            .hCursor = LoadCursor(wyn_state.hinstance, IDC_ARROW),
+            .hIcon = icon,
+            .hCursor = cursor,
             .hbrBackground = NULL,
             .lpszMenuName = NULL,
             .lpszClassName = L"Wyn-Wnd",
@@ -494,7 +497,7 @@ extern wyn_exec_t wyn_execute_async(void (*func)(void*), void* arg)
 extern wyn_window_t wyn_open_window(void)
 {
     const HWND hWnd = CreateWindowExW(
-        0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW,
+        0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
         0, 0, 640, 480,
         NULL, NULL, wyn_state.hinstance, NULL
     );
