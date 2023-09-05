@@ -15,6 +15,8 @@ extern void wyg_make_current(wyg_context_t* context);
 
 extern void wyg_destroy_context(wyg_context_t* context);
 
-extern void wyg_swap_buffers(void);
+extern void wyg_swap_buffers(wyg_context_t* context);
+
+extern void* wyg_load(wyg_context_t* context, const char* name);
 
 // ================================================================================================================================
