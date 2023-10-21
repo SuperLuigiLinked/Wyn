@@ -10,7 +10,7 @@
 
 static void events_init(Events* const restrict self)
 {  
-    self->common->window = wyn_open_window();
+    self->common->window = wyn_window_open();
     ASSERT(self->common->window != 0);
 
     self->common->sem_u2r = wyt_sem_create(1, 0);
@@ -27,7 +27,7 @@ static void events_init(Events* const restrict self)
     self->render_thread = wyt_spawn(render_loop, self->common);
     ASSERT(self->render_thread != 0);
 
-    wyn_show_window(self->common->window);
+    wyn_window_show(self->common->window);
 }
 
 static void events_deinit(Events* const restrict self)
@@ -58,7 +58,7 @@ static void events_deinit(Events* const restrict self)
 
     if (self->common->window != 0)
     {
-        wyn_close_window(self->common->window);
+        wyn_window_close(self->common->window);
         self->common->window = 0;
     }
 }

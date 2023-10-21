@@ -6,7 +6,7 @@ set(WYN_EXAMPLE_GL ON CACHE BOOL "Controls whether or not Wyn-Example uses OpenG
 
 # ================================================================================================================================
 
-add_executable(wyn_example MACOSX_BUNDLE)
+add_executable(wyn_example WIN32 MACOSX_BUNDLE)
 add_executable(wyn::example ALIAS wyn_example)
 
 # ================================================================================================================================
@@ -16,6 +16,10 @@ target_sources(wyn_example PRIVATE
     "src/utils.h" "src/common.h" "src/events.h" "src/update.h" "src/render.h"
 )
 target_link_libraries(wyn_example wyn::wyn wyn::wyt wyn::wyg)
+
+if (WIN32)
+    target_link_libraries(wyn_example "dcomp")
+endif()
 
 if (WYN_EXAMPLE_GL)
     target_sources(wyn_example PRIVATE "src/render_gl.c")

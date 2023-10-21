@@ -14,7 +14,7 @@ static void update_deinit(Update* const restrict self);
 extern wyt_retval_t WYT_ENTRY update_loop(void* arg);
 
 static void update_iterate(Update* const restrict self);
-static void update_vsync(Update* const self);
+static wyt_time_t update_vsync(const wyt_time_t epoch, const wyt_time_t last_tick);
 static void update_render_signal(Update* const self);
 static void update_render_await(Update* const self);
 
@@ -44,11 +44,15 @@ extern wyt_retval_t WYT_ENTRY update_loop(void* common)
     Update self = { .common = common };
     update_init(&self);
 
+    const wyt_time_t epoch = self.common->epoch;
+    wyt_time_t last_tick = epoch;
+
     while (!wyn_quitting())
     {
         update_iterate(&self);
+
         update_render_signal(&self);
-        update_vsync(&self);
+        last_tick = update_vsync(epoch, last_tick);
         update_render_await(&self);
 
         update_debug(&self);
@@ -72,10 +76,15 @@ static void update_iterate(Update* const restrict self)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static void update_vsync(Update* const self)
+static wyt_time_t update_vsync(const wyt_time_t epoch, const wyt_time_t last_tick)
 {
-    (void)self;
-    wyt_nanosleep_for(nanos_per_second / frames_per_second * 30);
+    const wyt_time_t last_ticks = last_tick - epoch;
+    const wyt_time_t last_frames = wyt_scale(last_ticks, frames_per_second, nanos_per_second);
+    const wyt_time_t next_frames = last_frames + 1;
+    const wyt_time_t next_ticks = wyt_scale(next_frames, nanos_per_second, frames_per_second);
+    const wyt_time_t next_tick = epoch + next_ticks;
+    wyt_nanosleep_until(next_tick);
+    return wyt_nanotime();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -106,7 +115,7 @@ static void update_debug(const Update* const self)
     const double frame_el = frame_fe - frame_fs;
     const int64_t dropped = (int64_t)((uint64_t)frame_fs - (uint64_t)frame);
 
-    LOG("[UPDATE] (%6"PRIu64") %+"PRIi64" | %9.2f %9.2f %9.2f |\n", frame, dropped, frame_fs, frame_fe, frame_el);
+    LOG("[UPDATE] (%6"PRIu64") %-12"PRIi64" | %9.2f %9.2f %9.2f |\n", frame, dropped, frame_fs, frame_fe, frame_el);
 }
 
 // ================================================================================================================================

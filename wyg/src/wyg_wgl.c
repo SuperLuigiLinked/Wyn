@@ -115,14 +115,14 @@ extern void wyg_make_current(wyg_context_t* const restrict context)
             const PFNWGLGETSWAPINTERVALEXTPROC gl_GetSwapInterval = wglGetProcAddress("wglGetSwapIntervalEXT");
             WYG_ASSERT(gl_GetSwapInterval != 0);
 
-            const int swap_get = gl_GetSwapInterval();
-            const int swap_set = gl_SetSwapInterval(1);
-            const int swap_net = gl_GetSwapInterval();
+            [[maybe_unused]] const int swap_get = gl_GetSwapInterval();
+            [[maybe_unused]] const int swap_set = gl_SetSwapInterval(0);
+            [[maybe_unused]] const int swap_net = gl_GetSwapInterval();
 
-            WYG_LOG("[SWAP-GET] %i\n", swap_get);
-            WYG_LOG("[SWAP-SET] %i\n", swap_set);
-            WYG_LOG("[SWAP-NET] %i\n", swap_net);
-            __debugbreak();
+            // WYG_LOG("[SWAP-GET] %i\n", swap_get);
+            // WYG_LOG("[SWAP-SET] %i\n", swap_set);
+            // WYG_LOG("[SWAP-NET] %i\n", swap_net);
+            // __debugbreak();
         }
         #pragma GCC diagnostic pop
     }

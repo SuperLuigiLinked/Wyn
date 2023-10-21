@@ -6,24 +6,31 @@
 
 // ================================================================================================================================
 
-#if defined(_WIN32) && 0
-int WINAPI wWinMain
-(
-    _In_ HINSTANCE hInstance,
-    _In_opt_ HINSTANCE hPrevInstance,
-    _In_ LPWSTR lpCmdLine,
-    _In_ int nShowCmd
-)
-#else
 int main(void)
-#endif
 {
     LOG("[START]\n");
     {
-        events_loop();
+        app_run();
     }
     LOG("[STOP]\n");
     return 0;
 }
+
+// ================================================================================================================================
+
+#if defined(_WIN32)
+    #include <Windows.h>
+
+    int WINAPI wWinMain
+    (
+        [[maybe_unused]] _In_ HINSTANCE hInstance,
+        [[maybe_unused]] _In_opt_ HINSTANCE hPrevInstance,
+        [[maybe_unused]] _In_ LPWSTR lpCmdLine,
+        [[maybe_unused]] _In_ int nShowCmd
+    )
+    {
+        return main();
+    }
+#endif
 
 // ================================================================================================================================

@@ -8,6 +8,7 @@
 
 #if defined(WYN_EXAMPLE_GL)
 #   include <wyg.h>
+#   define GL_GLEXT_PROTOTYPES
 #   include <GL/glcorearb.h>
 #endif
 
