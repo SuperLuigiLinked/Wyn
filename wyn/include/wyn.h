@@ -29,13 +29,22 @@ typedef void* wyn_window_t;
 /**
  * @brief Result of scheduling an exec-callback.
  */
-enum wyn_exec_t
+enum wyn_status_t
 {
-    wyn_exec_success,   ///< The callback was scheduled and/or executed.
-    wyn_exec_canceled,  ///< The callback was canceled (such as during shutting down).
-    wyn_exec_failed,    ///< The callback was unable to be scheduled (such as the queue was full).
+    wyn_status_canceled = -1,  ///< The callback was canceled (such as during shutting down).
+    wyn_status_pending = 0,   ///< The callback is scheduled to be executed.
+    wyn_status_complete = 1,  ///< The callback has finished execution.
 };
-typedef enum wyn_exec_t wyn_exec_t;
+typedef enum wyn_status_t wyn_status_t;
+
+struct wyn_task_t
+{
+    void (*func)(void*);
+    void* args;
+    _Atomic(struct wyn_task_t*) next;
+    _Atomic(enum wyn_status_t) status;
+};
+typedef struct wyn_task_t wyn_task_t;
 
 // ================================================================================================================================
 //  API Functions
@@ -44,6 +53,8 @@ typedef enum wyn_exec_t wyn_exec_t;
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// --------------------------------------------------------------------------------------------------------------------------------
 
 /**
  * @brief Runs the Event Loop.
@@ -69,51 +80,72 @@ extern bool wyn_quitting(void);
  */
 extern bool wyn_is_this_thread(void);
 
-/**
- * @brief Schedules a callback function to be executed synchronously on the Main Thread.
- * @details This function returns after the callback has finished executing or has been canceled.
- * @param[in] func [non-null] The callback function to execute.
- * @param[in] arg  [nullable] The argument to pass to the callback function.
- * @return A status code indicating whether or not the callback was scheduled.
- * @note This function may be called from any thread.
- */
-extern wyn_exec_t wyn_execute(void (*func)(void*), void* arg);
+// --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @brief Schedules a callback function to be executed asynchronously on the Main Thread.
- * @details This function returns immediately, even when called on the Main Thread.
- * @param[in] func [non-null] The callback function to execute.
- * @param[in] arg  [nullable] The argument to pass to the callback function.
- * @return A status code indicating whether or not the callback was scheduled.
- * @warning Even if this function returns `wyn_exec_success`, the callback may still be canceled later.
- * @note This function may be called from any thread.
+ * @brief Adds a Task to the end of the Task Queue.
+ * @param[in,out] task [non-null] The task to enqueue.
+ * @warning Once queued, the pointer must remain valid and the data unchanged until the status is no longer "pending". 
  */
-extern wyn_exec_t wyn_execute_async(void (*func)(void*), void* arg);
+extern void wyn_task_enqueue(wyn_task_t* task);
+
+/**
+ * @brief Removes a Task from the front of the Task Queue.
+ * @return [nullable] The dequeued task, or NULL if there are none.
+ * @warning Must only be called on the Event Thread.
+ * @note Normally, the user need not call this function, as the Event Loop will dequeue tasks while running.
+ *       In certain circumstances, the user may want to call this function themselves in their event handlers.
+ */
+extern wyn_task_t* wyn_task_dequeue(void);
+
+/**
+ * @brief Signals to the Event Thread that Tasks are pending.
+ * @note Under normal circumstances, the Event Loop will not start dequeing tasks until it is signalled.
+ */
+extern void wyn_task_signal(void);
+
+/**
+ * @brief Atomically checks the Task's status.
+ * @return The status of the task's execution. May still be pending.
+ * @param[in] task [non-null] The task to poll.
+ */
+extern wyn_status_t wyn_task_poll(const wyn_task_t* task);
+
+/**
+ * @brief Waits until the Task is no longer pending.
+ * @return The status of the task's execution. Will be either canceled/completed.
+ * @param[in] task [non-null] The task to await.
+ */
+extern wyn_status_t wyn_task_await(const wyn_task_t* task);
+
+// --------------------------------------------------------------------------------------------------------------------------------
 
 /**
  * @brief Attempts to open a new Window.
  * @return [nullable] A handle to the new Window, if successful.
  */
-extern wyn_window_t wyn_open_window(void);
+extern wyn_window_t wyn_window_open(void);
 
 /**
  * @brief Closes a previously opened Window.
  * @param[in] window [non-null] A handle to the Window.
  * @warning Once a Window has been closed, its handle is invalidated and must not be used.
  */
-extern void wyn_close_window(wyn_window_t window);
+extern void wyn_window_close(wyn_window_t window);
 
 /**
  * @brief Shows a hidden Window.
  * @param[in] window [non-null] A handle to the Window.
  */
-extern void wyn_show_window(wyn_window_t window);
+extern void wyn_window_show(wyn_window_t window);
 
 /**
  * @brief Hides a visible Window.
  * @param[in] window [non-null] A handle to the Window.
  */
-extern void wyn_hide_window(wyn_window_t window);
+extern void wyn_window_hide(wyn_window_t window);
+
+// --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef __cplusplus
 }

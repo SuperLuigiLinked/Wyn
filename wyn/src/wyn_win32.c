@@ -43,12 +43,8 @@ struct wyn_state_t
 {
     void* userdata;             ///< The pointer provided by the user when the Event Loop was started.
     _Atomic(bool) quitting;     ///< Flag to indicate the Event Loop is quitting.
-
+    
     DWORD tid_main;             ///< Thread ID of the Main Thread.
-
-    HANDLE read_pipe;           ///< Read-end of the callback pipe.
-    HANDLE write_pipe;          ///< Write-end of the callback pipe.
-    _Atomic(size_t) len_pipe;   ///< Number of callbacks enqueued on the pipe.
 
     HINSTANCE hinstance;        ///< HINSTANCE for the application.
     HWND msg_hwnd;              ///< Message-only Window for sending messages.
@@ -63,16 +59,6 @@ struct wyn_state_t
  */
 static struct wyn_state_t wyn_state;
 
-/**
- * @brief Struct for passing callbacks with arguments.
- */
-struct wyn_callback_t
-{
-    void (*func)(void*);        ///< The function to call.
-    void* arg;                  ///< The argument to pass to the function.
-    _Atomic(uint32_t)* flag;    ///< Flag for controlling synchronous execution.
-};
-
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
@@ -86,12 +72,6 @@ static bool wyn_init(void* userdata);
  * @brief Cleans up all Wyn state.
  */
 static void wyn_terminate(void);
-
-/**
- * @brief Clears all currently pending exec-callbacks.
- * @param cancel Flag to indicate that the callbacks should be cancelled instead of run.
- */
-static void wyn_clear_exec_events(const bool cancel);
 
 /**
  * @brief Destroys all remaining windows, without notifying the user.
@@ -118,6 +98,9 @@ static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
  */
 static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+extern void wyn_init_tasks(void);
+extern void wyn_clear_tasks(bool cancel);
+
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -135,9 +118,6 @@ static bool wyn_init(void* userdata)
         .userdata = userdata,
         .quitting = false,
         .tid_main = 0,
-        .read_pipe = NULL,
-        .write_pipe = NULL,
-        .len_pipe = 0,
         .hinstance = NULL,
         .msg_hwnd = NULL,
         .msg_atom = 0,
@@ -145,11 +125,8 @@ static bool wyn_init(void* userdata)
     };
 
     wyn_state.tid_main = GetCurrentThreadId();
-
-    {
-        const BOOL res = CreatePipe(&wyn_state.read_pipe, &wyn_state.write_pipe, NULL, 0);
-        if (res == 0) return false;
-    }
+    
+    wyn_init_tasks();
 
     {
         wyn_state.hinstance = GetModuleHandleW(NULL);
@@ -217,7 +194,7 @@ static bool wyn_init(void* userdata)
  */
 static void wyn_terminate(void)
 {
-    wyn_clear_exec_events(true);
+    wyn_clear_tasks(true);
     wyn_destroy_windows();
 
     if (wyn_state.msg_hwnd != NULL)
@@ -234,42 +211,6 @@ static void wyn_terminate(void)
     {
         [[maybe_unused]] const BOOL res = UnregisterClassW(L"Wyn-Wnd", wyn_state.hinstance);
     }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_sub
- * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-replymessage
- */
-static void wyn_clear_exec_events(const bool cancel)
-{
-    const size_t pending = atomic_load_explicit(&wyn_state.len_pipe, memory_order_relaxed);
-
-    for (size_t removed = 0; removed < pending; ++removed)
-    {
-        struct wyn_callback_t callback;
-        {
-            DWORD bytes_read = 0;
-            const BOOL res = ReadFile(wyn_state.read_pipe, &callback, sizeof(callback), &bytes_read, NULL);
-            WYN_ASSERT(res != FALSE);
-            WYN_ASSERT(bytes_read == sizeof(callback));
-            WYN_ASSERT(callback.func != NULL);
-        }
-        
-        if (!cancel) callback.func(callback.arg);
-
-        if (callback.flag != NULL)
-        {
-            const uint32_t wake_val = (uint32_t)(cancel ? wyn_exec_canceled : wyn_exec_success);
-            atomic_store_explicit(callback.flag, wake_val, memory_order_release);
-            (void)ReplyMessage(0);
-        }
-    }
-
-    atomic_fetch_sub_explicit(&wyn_state.len_pipe, pending, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -313,7 +254,7 @@ static void wyn_run_native(void)
     }
 
     wyn_quit();
-    wyn_clear_exec_events(true);
+    wyn_clear_tasks(true);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -339,7 +280,7 @@ static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
         case WM_APP:
         {
-            wyn_clear_exec_events(false);
+            wyn_clear_tasks(false);
             break;
         }
     }
@@ -423,78 +364,9 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
- * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessagew
- * @see https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
- */
-extern wyn_exec_t wyn_execute(void (*func)(void*), void* arg)
-{
-    if (wyn_is_this_thread())
-    {
-        func(arg);
-        return wyn_exec_success;
-    }
-    else
-    {
-        if (wyn_quitting()) return wyn_exec_canceled;
-
-        _Atomic(uint32_t) flag = 0;
-        const struct wyn_callback_t callback = { .func = func, .arg = arg, .flag = &flag };
-
-        {
-            DWORD bytes_written = 0;
-            const BOOL res = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
-            if (res == FALSE) return wyn_exec_failed;
-            
-            WYN_ASSERT(bytes_written == sizeof(callback));
-            atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_relaxed);
-        }
-
-        {
-            [[maybe_unused]] const LRESULT ret = SendMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
-            const DWORD err = GetLastError();
-            if (err == ERROR_ACCESS_DENIED) return wyn_exec_failed;
-        }
-
-        const uint32_t retval = atomic_load_explicit(&flag, memory_order_acquire);
-        return (wyn_exec_t)retval;
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see https://en.cppreference.com/w/c/atomic/atomic_fetch_add
- * @see https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-writefile
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
- */
-extern wyn_exec_t wyn_execute_async(void (*func)(void*), void* arg)
-{
-    if (wyn_quitting()) return wyn_exec_canceled;
-
-    const struct wyn_callback_t callback = { .func = func, .arg = arg, .flag = NULL };
-
-    DWORD bytes_written = 0;
-    const BOOL written = WriteFile(wyn_state.write_pipe, &callback, sizeof(callback), &bytes_written, NULL);
-    if (written == FALSE) return wyn_exec_failed;
-    
-    WYN_ASSERT(bytes_written == sizeof(callback));
-    atomic_fetch_add_explicit(&wyn_state.len_pipe, 1, memory_order_relaxed);
-
-    const BOOL posted = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
-    if (posted == FALSE) return wyn_exec_failed;
-
-    return wyn_exec_success;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
-extern wyn_window_t wyn_open_window(void)
+extern wyn_window_t wyn_window_open(void)
 {
     const HWND hWnd = CreateWindowExW(
         0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
@@ -510,7 +382,7 @@ extern wyn_window_t wyn_open_window(void)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
-extern void wyn_close_window(wyn_window_t window)
+extern void wyn_window_close(wyn_window_t window)
 {
     const HWND hWnd = (HWND)window;
     [[maybe_unused]] const BOOL res = DestroyWindow(hWnd);
@@ -521,7 +393,7 @@ extern void wyn_close_window(wyn_window_t window)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
-extern void wyn_show_window(wyn_window_t window)
+extern void wyn_window_show(wyn_window_t window)
 {
     const HWND hWnd = (HWND)window;
     [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_SHOW);
@@ -532,7 +404,7 @@ extern void wyn_show_window(wyn_window_t window)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
-extern void wyn_hide_window(wyn_window_t window)
+extern void wyn_window_hide(wyn_window_t window)
 {
     const HWND hWnd = (HWND)window;
     [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_HIDE);

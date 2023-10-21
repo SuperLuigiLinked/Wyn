@@ -32,7 +32,7 @@ add_library(wyn::wyn ALIAS wyn)
 # ================================================================================================================================
 
 target_include_directories(wyn PUBLIC "include/")
-target_sources(wyn PUBLIC "include/wyn.h")
+target_sources(wyn PUBLIC "include/wyn.h" "src/wyn_tasks.c")
 
 if (WYN_USE_STUBS)
     # message(STATUS "Using `wyn_stubs.c`.")
