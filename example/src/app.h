@@ -32,7 +32,7 @@ struct App
     
     wyn_window_t window;
 
-    size_t num_events;
+    uint64_t num_events;
 };
 typedef struct App App;
 

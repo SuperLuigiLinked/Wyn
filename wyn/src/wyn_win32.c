@@ -52,12 +52,12 @@ struct wyn_state_t
     void* userdata;         ///< The pointer provided by the user when the Event Loop was started.
     _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
     
-    DWORD tid_main;         ///< Thread ID of the Main Thread.
-
     HINSTANCE hinstance;    ///< HINSTANCE for the application.
     HWND msg_hwnd;          ///< Message-only Window for sending messages.
     ATOM msg_atom;          ///< Atom for the message-only Window.
     ATOM wnd_atom;          ///< Atom for regular Windows.
+
+    DWORD tid_main;         ///< Thread ID of the Main Thread.
 };
 
 /**

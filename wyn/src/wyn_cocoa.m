@@ -25,8 +25,6 @@
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
-// #define WYN_LOG_OBJC
-
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -42,16 +40,14 @@
 @end
 
 /**
- * @brief Static instance of all Wyn state.
- * @details Because Wyn can only be used on the Main Thread, it is safe to have static-storage state.
- *          This state must be global so it can be reached by callbacks on certain platforms.
+ * @brief Internal structure for holding Wyn state.
  */
 struct wyn_state_t 
 {
-    void* userdata;             ///< The pointer provided by the user when the Event Loop was started.
-    _Atomic(bool) quitting;     ///< Flag to indicate the Event Loop is quitting.
+    void* userdata;           ///< The pointer provided by the user when the Event Loop was started.
+    _Atomic(bool) quitting;   ///< Flag to indicate the Event Loop is quitting.
 
-    wyn_delegate_t* delegate;   ///< Instance of the Delegate Class.
+    wyn_delegate_t* delegate; ///< Instance of the Delegate Class.
 };
 
 /**
@@ -66,12 +62,12 @@ static struct wyn_state_t wyn_state;
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @return `true` if successful, `false` if there were errors.
  */
-static bool wyn_init(void* userdata);
+static bool wyn_reinit(void* userdata);
 
 /**
  * @brief Cleans up all Wyn state.
  */
-static void wyn_terminate(void);
+static void wyn_deinit(void);
 
 /**
  * @brief Closes all remaining open Windows.
@@ -100,7 +96,7 @@ static void wyn_run_native(void);
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428360-sharedapplication?language=objc
  * @see https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
  */
-static bool wyn_init(void* userdata)
+static bool wyn_reinit(void* userdata)
 {
     wyn_state = (struct wyn_state_t){
         .userdata = userdata,
@@ -126,7 +122,7 @@ static bool wyn_init(void* userdata)
  * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
  * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
-static void wyn_terminate(void)
+static void wyn_deinit(void)
 {
     const dispatch_queue_main_t main_queue = dispatch_get_main_queue();
     dispatch_async_f(main_queue, nil, wyn_close_callback);
@@ -178,20 +174,12 @@ static void wyn_run_native(void)
 
 @implementation wyn_delegate_t
 
-#ifdef WYN_LOG_OBJC
-+ (BOOL)resolveInstanceMethod:(SEL)sel
-{
-    WYN_LOG("[OBJC] %s\n", sel_getName(sel));
-    return [super resolveInstanceMethod:sel];
-}
-#endif
-
 /**
  * @see https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428642-applicationshouldterminate?language=objc
  */
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender
 {
-    WYN_LOG("[OBJC] applicationShouldTerminate:\n");
+    // WYN_LOG("[OBJC] applicationShouldTerminate:\n");
 
     wyn_quit();
     return NSTerminateCancel;
@@ -204,36 +192,11 @@ static void wyn_run_native(void)
 {
     const wyn_window_t window = (wyn_window_t)sender;
 
-    wyn_on_window_close_request(wyn_state.userdata, window);
+    wyn_on_window_close(wyn_state.userdata, window);
     return FALSE;
 }
 
 @end
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-#ifdef WYN_LOG_OBJC
-#include <dlfcn.h>
-
-[[maybe_unused]]
-static void wyn_objc_log_toggle(const BOOL toggle)
-{
-    typedef void (*FP_instrumentObjcMessageSends)(BOOL);
-    static FP_instrumentObjcMessageSends fp_instrumentObjcMessageSends = 0;
-    
-    if (fp_instrumentObjcMessageSends == 0)
-    {
-        void* dl_libobjc = dlopen("/usr/lib/libobjc.dylib", RTLD_LAZY);
-        WYN_ASSERT(dl_libobjc != 0);
-
-        fp_instrumentObjcMessageSends = (FP_instrumentObjcMessageSends)dlsym(dl_libobjc, "instrumentObjcMessageSends");
-        WYN_ASSERT(fp_instrumentObjcMessageSends != 0);
-    }
-
-    fp_instrumentObjcMessageSends(toggle);
-    NSLog(@"[OBJC] LOGGING (%d)\n", (int)toggle);
-}
-#endif
 
 // ================================================================================================================================
 //  Public Definitions
@@ -246,21 +209,13 @@ extern void wyn_run(void* userdata)
 {
     @autoreleasepool
     {
-    #ifdef WYN_LOG_OBJC
-        wyn_objc_log_toggle(TRUE);
-    #endif
-
-        if (wyn_init(userdata))
+        if (wyn_reinit(userdata))
         {
             wyn_on_start(userdata);
             wyn_run_native();
             wyn_on_stop(userdata);
         }
-        wyn_terminate();
-
-    #ifdef WYN_LOG_OBJC
-        wyn_objc_log_toggle(FALSE);
-    #endif
+        wyn_deinit();
     }
 }
 
@@ -308,46 +263,14 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
- * @see https://en.cppreference.com/w/c/atomic/atomic_store
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/3191901-dispatch_async_and_wait
- */
-extern wyn_exec_t wyn_execute(void (*func)(void *), void *arg)
-{
-    if (wyn_is_this_thread())
-    {
-        func(arg);
-        return wyn_exec_success;
-    }
-    else
-    {
-        __block _Atomic(wyn_exec_t) res = wyn_exec_canceled;
-
-        dispatch_async_and_wait(dispatch_get_main_queue(), ^{
-            if (wyn_quitting()) return;
-            func(arg);
-            atomic_store_explicit(&res, wyn_exec_success, memory_order_release);
-        });
-
-        return atomic_load_explicit(&res, memory_order_acquire);
-    }
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
  * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
  * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
-extern wyn_exec_t wyn_execute_async(void (*func)(void *), void *arg)
+extern void wyn_signal(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (wyn_quitting()) return;
-        func(arg);
+        wyn_on_signal(wyn_state.userdata);
     });
-
-    return wyn_exec_success;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -358,7 +281,7 @@ extern wyn_exec_t wyn_execute_async(void (*func)(void *), void *arg)
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
  */
-extern wyn_window_t wyn_open_window(void)
+extern wyn_window_t wyn_window_open(void)
 {
     const NSRect rect = { .origin = { .x = 0.0, .y = 0.0 }, .size = { .width = 640.0, .height = 480.0 } };
     const NSWindowStyleMask style = NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
@@ -376,7 +299,7 @@ extern wyn_window_t wyn_open_window(void)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
  */
-extern void wyn_close_window(wyn_window_t window)
+extern void wyn_window_close(wyn_window_t window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd close];
@@ -387,7 +310,7 @@ extern void wyn_close_window(wyn_window_t window)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
  */
-extern void wyn_show_window(wyn_window_t window)
+extern void wyn_window_show(wyn_window_t window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd makeKeyAndOrderFront:nil];
@@ -398,7 +321,7 @@ extern void wyn_show_window(wyn_window_t window)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
  */
-extern void wyn_hide_window(wyn_window_t window)
+extern void wyn_window_hide(wyn_window_t window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd orderOut:nil];
