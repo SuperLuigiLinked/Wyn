@@ -43,7 +43,15 @@ extern void wyn_on_stop(void* const userdata)
     app_deinit(self);
 }
 
-extern void wyn_on_window_close_request(void* const userdata, wyn_window_t const window)
+extern void wyn_on_signal(void* const userdata)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") SIGNAL\n", ++self->num_events);
+    
+    wyn_quit();
+}
+
+extern void wyn_on_window_close(void* const userdata, wyn_window_t const window)
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->num_events);

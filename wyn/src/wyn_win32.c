@@ -32,6 +32,14 @@
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
+// --------------------------------------------------------------------------------------------------------------------------------
+
+#define WYN_MSG_CLASS L"Wyn-Msg"
+#define WYN_WND_CLASS L"Wyn-Wnd"
+#define WYN_CS_STYLE (CS_HREDRAW | CS_VREDRAW)
+#define WYN_EX_STYLE (0)
+#define WYN_WS_STYLE (WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -41,21 +49,19 @@
  */
 struct wyn_state_t
 {
-    void* userdata;             ///< The pointer provided by the user when the Event Loop was started.
-    _Atomic(bool) quitting;     ///< Flag to indicate the Event Loop is quitting.
+    void* userdata;         ///< The pointer provided by the user when the Event Loop was started.
+    _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
     
-    DWORD tid_main;             ///< Thread ID of the Main Thread.
+    DWORD tid_main;         ///< Thread ID of the Main Thread.
 
-    HINSTANCE hinstance;        ///< HINSTANCE for the application.
-    HWND msg_hwnd;              ///< Message-only Window for sending messages.
-    ATOM msg_atom;              ///< Atom for the message-only Window.
-    ATOM wnd_atom;              ///< Atom for regular Windows.
+    HINSTANCE hinstance;    ///< HINSTANCE for the application.
+    HWND msg_hwnd;          ///< Message-only Window for sending messages.
+    ATOM msg_atom;          ///< Atom for the message-only Window.
+    ATOM wnd_atom;          ///< Atom for regular Windows.
 };
 
 /**
  * @brief Static instance of all Wyn state.
- * @details Because Wyn can only be used on the Main Thread, it is safe to have static-storage state.
- *          This state must be global so it can be reached by callbacks on certain platforms.
  */
 static struct wyn_state_t wyn_state;
 
@@ -66,12 +72,12 @@ static struct wyn_state_t wyn_state;
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @return `true` if successful, `false` if there were errors.
  */
-static bool wyn_init(void* userdata);
+static bool wyn_reinit(void* userdata);
 
 /**
  * @brief Cleans up all Wyn state.
  */
-static void wyn_terminate(void);
+static void wyn_deinit(void);
 
 /**
  * @brief Destroys all remaining windows, without notifying the user.
@@ -81,7 +87,7 @@ static void wyn_destroy_windows(void);
 /**
  * @brief Callback function for destroying windows.
  */
-static BOOL CALLBACK wyn_destroy_windows_callback(HWND hWnd, LPARAM lParam);
+static BOOL CALLBACK wyn_destroy_windows_callback(HWND hwnd, LPARAM lparam);
 
 /**
  * @brief Runs the platform-native Event Loop.
@@ -91,15 +97,13 @@ static void wyn_run_native(void);
 /**
  * @brief WndProc for the message-only Window.
  */
-static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK wyn_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
 
 /**
  * @brief WndProc for regular Windows.
  */
-static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
 
-extern void wyn_init_tasks(void);
-extern void wyn_clear_tasks(bool cancel);
 
 // ================================================================================================================================
 //  Private Definitions
@@ -112,7 +116,7 @@ extern void wyn_clear_tasks(bool cancel);
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
-static bool wyn_init(void* userdata)
+static bool wyn_reinit(void* userdata)
 {
     wyn_state = (struct wyn_state_t){
         .userdata = userdata,
@@ -123,11 +127,11 @@ static bool wyn_init(void* userdata)
         .msg_atom = 0,
         .wnd_atom = 0,
     };
-
-    wyn_state.tid_main = GetCurrentThreadId();
     
-    wyn_init_tasks();
-
+    {
+        wyn_state.tid_main = GetCurrentThreadId();
+    }
+    
     {
         wyn_state.hinstance = GetModuleHandleW(NULL);
         if (wyn_state.hinstance == 0) return false;
@@ -139,7 +143,7 @@ static bool wyn_init(void* userdata)
 
         const WNDCLASSEXW wnd_class = {
             .cbSize = sizeof(WNDCLASSEXW),
-            .style = CS_HREDRAW | CS_VREDRAW,
+            .style = WYN_CS_STYLE,
             .lpfnWndProc = wyn_wndproc,
             .cbClsExtra = 0,
             .cbWndExtra = 0,
@@ -148,7 +152,7 @@ static bool wyn_init(void* userdata)
             .hCursor = cursor,
             .hbrBackground = NULL,
             .lpszMenuName = NULL,
-            .lpszClassName = L"Wyn-Wnd",
+            .lpszClassName = WYN_WND_CLASS,
             .hIconSm = NULL,
         };
         wyn_state.wnd_atom = RegisterClassExW(&wnd_class);
@@ -167,7 +171,7 @@ static bool wyn_init(void* userdata)
             .hCursor = NULL,
             .hbrBackground = NULL,
             .lpszMenuName = NULL,
-            .lpszClassName = L"Wyn-Msg",
+            .lpszClassName = WYN_MSG_CLASS,
             .hIconSm = NULL,
         };
         wyn_state.msg_atom = RegisterClassExW(&msg_class);
@@ -176,7 +180,7 @@ static bool wyn_init(void* userdata)
 
     {
         wyn_state.msg_hwnd = CreateWindowExW(
-            0, L"Wyn-Msg", L"", 0,
+            0, WYN_MSG_CLASS, L"", 0,
             0, 0, 0, 0,
             HWND_MESSAGE, NULL, wyn_state.hinstance, NULL
         );
@@ -192,9 +196,8 @@ static bool wyn_init(void* userdata)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
  */
-static void wyn_terminate(void)
+static void wyn_deinit(void)
 {
-    wyn_clear_tasks(true);
     wyn_destroy_windows();
 
     if (wyn_state.msg_hwnd != NULL)
@@ -204,12 +207,12 @@ static void wyn_terminate(void)
 
     if (wyn_state.msg_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(L"Wyn-Msg", wyn_state.hinstance);
+        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_MSG_CLASS, wyn_state.hinstance);
     }
 
     if (wyn_state.wnd_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(L"Wyn-Wnd", wyn_state.hinstance);
+        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_WND_CLASS, wyn_state.hinstance);
     }
 }
 
@@ -220,16 +223,16 @@ static void wyn_terminate(void)
  */
 static void wyn_destroy_windows(void)
 {
-    (void)EnumThreadWindows(wyn_state.tid_main, wyn_destroy_windows_callback, 0);
+    [[maybe_unused]] const BOOL res = EnumThreadWindows(wyn_state.tid_main, wyn_destroy_windows_callback, 0);
 }
 
 /**
  * @see https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
-static BOOL CALLBACK wyn_destroy_windows_callback(HWND hWnd, LPARAM lParam [[maybe_unused]])
+static BOOL CALLBACK wyn_destroy_windows_callback(HWND hwnd, LPARAM lparam [[maybe_unused]])
 {
-    (void)DestroyWindow(hWnd);
+    [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
     return TRUE;
 }
 
@@ -247,14 +250,11 @@ static void wyn_run_native(void)
         MSG msg;
         const BOOL res = GetMessageW(&msg, 0, 0, 0);
         if (res == -1) break; // -1;
-        if (res == 0) break; // (int)msg.wParam;
+        if (res == 0) break; // (int)msg.wparam;
 
-        (void)TranslateMessage(&msg);
-        (void)DispatchMessageW(&msg);
+        [[maybe_unused]] const BOOL res1 = TranslateMessage(&msg);
+        [[maybe_unused]] const LRESULT res2 = DispatchMessageW(&msg);
     }
-
-    wyn_quit();
-    wyn_clear_tasks(true);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -265,27 +265,27 @@ static void wyn_run_native(void)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
-static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK wyn_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
-    //WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
+    //WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
 
-    switch (uMsg)
+    switch (umsg)
     {
         case WM_CLOSE:
         {
-            WYN_LOG("[MSG HWND] CLOSED!\n");
+            // WYN_LOG("[MSG HWND] CLOSED!\n");
             PostQuitMessage(1);
             return 0;
         }
 
         case WM_APP:
         {
-            wyn_clear_tasks(false);
+            wyn_on_signal(wyn_state.userdata);
             break;
         }
     }
 
-    const LRESULT res = DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
     return res;
 }
 
@@ -295,22 +295,22 @@ static LRESULT CALLBACK wyn_msgproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
  * @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
-static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
 {
-    //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hWnd, uMsg, wParam, lParam);
+    //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
 
-    const wyn_window_t window = (wyn_window_t)hWnd;
+    const wyn_window_t window = (wyn_window_t)hwnd;
 
-    switch (uMsg)
+    switch (umsg)
     {
         case WM_CLOSE:
         {
-            wyn_on_window_close_request(wyn_state.userdata, window);
+            wyn_on_window_close(wyn_state.userdata, window);
             return 0;
         }
     }
 
-    const LRESULT res = DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
     return res;
 }
 
@@ -320,13 +320,14 @@ static LRESULT CALLBACK wyn_wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 extern void wyn_run(void* userdata)
 {
-    if (wyn_init(userdata))
+    if (wyn_reinit(userdata))
     {
         wyn_on_start(userdata);
         wyn_run_native();
+        wyn_quit();
         wyn_on_stop(userdata);
     }
-    wyn_terminate();
+    wyn_deinit();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -364,17 +365,27 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
+ */
+extern void wyn_signal(void)
+{
+    [[maybe_unused]] const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
 extern wyn_window_t wyn_window_open(void)
 {
-    const HWND hWnd = CreateWindowExW(
-        0, L"Wyn-Wnd", L"", WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS),
+    const HWND hwnd = CreateWindowExW(
+        WYN_EX_STYLE, WYN_WND_CLASS, L"", WYN_WS_STYLE,
         0, 0, 640, 480,
         NULL, NULL, wyn_state.hinstance, NULL
     );
 
-    return (wyn_window_t)hWnd;
+    return (wyn_window_t)hwnd;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -384,8 +395,8 @@ extern wyn_window_t wyn_window_open(void)
  */
 extern void wyn_window_close(wyn_window_t window)
 {
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = DestroyWindow(hWnd);
+    const HWND hwnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -395,8 +406,8 @@ extern void wyn_window_close(wyn_window_t window)
  */
 extern void wyn_window_show(wyn_window_t window)
 {
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_SHOW);
+    const HWND hwnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_SHOW);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -406,8 +417,8 @@ extern void wyn_window_show(wyn_window_t window)
  */
 extern void wyn_window_hide(wyn_window_t window)
 {
-    const HWND hWnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hWnd, SW_HIDE);
+    const HWND hwnd = (HWND)window;
+    [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_HIDE);
 }
 
 // ================================================================================================================================

@@ -26,26 +26,6 @@
  */
 typedef void* wyn_window_t;
 
-/**
- * @brief Result of scheduling an exec-callback.
- */
-enum wyn_status_t
-{
-    wyn_status_canceled = -1,  ///< The callback was canceled (such as during shutting down).
-    wyn_status_pending = 0,   ///< The callback is scheduled to be executed.
-    wyn_status_complete = 1,  ///< The callback has finished execution.
-};
-typedef enum wyn_status_t wyn_status_t;
-
-struct wyn_task_t
-{
-    void (*func)(void*);
-    void* args;
-    _Atomic(struct wyn_task_t*) next;
-    _Atomic(enum wyn_status_t) status;
-};
-typedef struct wyn_task_t wyn_task_t;
-
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -71,52 +51,22 @@ extern void wyn_quit(void);
 /**
  * @brief Queries whether or not the Event Loop is stopping.
  * @return `true` if stopping, `false` otherwise.
+ * @note This function may be called from any thread.
  */
 extern bool wyn_quitting(void);
 
 /**
  * @brief Queries whether or not the Event Loop is on the calling thread.
  * @return `true` if this thread is the Event Thread, `false` otherwise.
+ * @note This function may be called from any thread.
  */
 extern bool wyn_is_this_thread(void);
 
-// --------------------------------------------------------------------------------------------------------------------------------
-
 /**
- * @brief Adds a Task to the end of the Task Queue.
- * @param[in,out] task [non-null] The task to enqueue.
- * @warning Once queued, the pointer must remain valid and the data unchanged until the status is no longer "pending". 
+ * @brief Wakes up the Event Thread and calls the `wyn_on_signal` user-callback.
+ * @note This function may be called from any thread.
  */
-extern void wyn_task_enqueue(wyn_task_t* task);
-
-/**
- * @brief Removes a Task from the front of the Task Queue.
- * @return [nullable] The dequeued task, or NULL if there are none.
- * @warning Must only be called on the Event Thread.
- * @note Normally, the user need not call this function, as the Event Loop will dequeue tasks while running.
- *       In certain circumstances, the user may want to call this function themselves in their event handlers.
- */
-extern wyn_task_t* wyn_task_dequeue(void);
-
-/**
- * @brief Signals to the Event Thread that Tasks are pending.
- * @note Under normal circumstances, the Event Loop will not start dequeing tasks until it is signalled.
- */
-extern void wyn_task_signal(void);
-
-/**
- * @brief Atomically checks the Task's status.
- * @return The status of the task's execution. May still be pending.
- * @param[in] task [non-null] The task to poll.
- */
-extern wyn_status_t wyn_task_poll(const wyn_task_t* task);
-
-/**
- * @brief Waits until the Task is no longer pending.
- * @return The status of the task's execution. Will be either canceled/completed.
- * @param[in] task [non-null] The task to await.
- */
-extern wyn_status_t wyn_task_await(const wyn_task_t* task);
+extern void wyn_signal(void);
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -174,11 +124,18 @@ extern void wyn_on_start(void* userdata);
 extern void wyn_on_stop(void* userdata);
 
 /**
+ * @brief Called whenever the Event Loop is woken up by a call to `wyn_signal`.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ */
+extern void wyn_on_signal(void* userdata);
+
+/**
  * @brief Called when a Window is requested to close.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window that is about to close.
+ * @note The Window will not close automatically. The user may choose whether or not to close the Window manually.
  */
-extern void wyn_on_window_close_request(void* userdata, wyn_window_t window);
+extern void wyn_on_window_close(void* userdata, wyn_window_t window);
 
 /**
  * @brief Called when a Window needs its contents redrawn.

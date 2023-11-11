@@ -32,7 +32,7 @@ add_library(wyn::wyn ALIAS wyn)
 # ================================================================================================================================
 
 target_include_directories(wyn PUBLIC "include/")
-target_sources(wyn PUBLIC "include/wyn.h" "src/wyn_tasks.c")
+target_sources(wyn PUBLIC "include/wyn.h")
 
 if (WYN_USE_STUBS)
     # message(STATUS "Using `wyn_stubs.c`.")
@@ -75,12 +75,7 @@ target_compile_options(wyn
     PRIVATE
         "-Weverything"
         "-Wno-c++98-compat"
-        "-Wno-c++17-extensions"
-        "-Wno-pre-c2x-compat"
-        "-Wno-fixed-enum-extension"
-        "-Wno-microsoft-fixed-enum"
         "-Wno-declaration-after-statement"
-        "-Wno-gnu-empty-initializer"
         "-Wno-unused-macros"
         "-Wno-padded"
 )
