@@ -2,64 +2,24 @@
  * @file events.c
  */
 
-#include "utils.h"
-#include "common.h"
-#include "events.h"
+#include "app.h"
 
 // ================================================================================================================================
 
-static void events_init(Events* const restrict self)
+static void app_reinit(App* const self)
 {  
-    self->common->window = wyn_window_open();
-    ASSERT(self->common->window != 0);
+    self->window = wyn_window_open();
+    ASSERT(self->window != 0);
 
-    self->common->sem_u2r = wyt_sem_create(1, 0);
-    ASSERT(self->common->sem_u2r != 0);
-
-    self->common->sem_r2u = wyt_sem_create(1, 0);
-    ASSERT(self->common->sem_r2u != 0);
-
-    self->common->epoch = wyt_nanotime();
-
-    self->update_thread = wyt_spawn(update_loop, self->common);
-    ASSERT(self->update_thread != 0);
-
-    self->render_thread = wyt_spawn(render_loop, self->common);
-    ASSERT(self->render_thread != 0);
-
-    wyn_window_show(self->common->window);
+    wyn_window_show(self->window);
 }
 
-static void events_deinit(Events* const restrict self)
+static void app_deinit(App* const self)
 {
-    if (self->render_thread != 0)
+    if (self->window != 0)
     {
-        (void)wyt_join(self->render_thread);
-        self->render_thread = 0;
-    }
-
-    if (self->update_thread != 0)
-    {
-        (void)wyt_join(self->update_thread);
-        self->update_thread = 0;
-    }
-
-    if (self->common->sem_r2u != 0)
-    {
-        wyt_sem_destroy(self->common->sem_r2u);
-        self->common->sem_r2u = 0;
-    }
-
-    if (self->common->sem_u2r != 0)
-    {
-        wyt_sem_destroy(self->common->sem_u2r);
-        self->common->sem_u2r = 0;
-    }
-
-    if (self->common->window != 0)
-    {
-        wyn_window_close(self->common->window);
-        self->common->window = 0;
+        wyn_window_close(self->window);
+        self->window = 0;
     }
 }
 
@@ -67,26 +27,26 @@ static void events_deinit(Events* const restrict self)
 
 extern void wyn_on_start(void* userdata)
 {
-    Events* const restrict self = userdata;
-    LOG("[EVENTS] (%"PRIu64") START\n", ++self->events);
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") START\n", ++self->num_events);
 
-    events_init(self);
+    app_reinit(self);
 }
 
 extern void wyn_on_stop(void* userdata)
 {
-    Events* const restrict self = userdata;
-    LOG("[EVENTS] (%"PRIu64") STOP\n", ++self->events);
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") STOP\n", ++self->num_events);
     
-    events_deinit(self);
+    app_deinit(self);
 }
 
 extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 {
-    Events* const restrict self = userdata;
-    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->events);
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->num_events);
 
-    if (window == self->common->window)
+    if (window == self->window)
     {
         wyn_quit();
     }
@@ -94,21 +54,13 @@ extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
 
 extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
 {
-    Events* const restrict self = userdata;
-    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++self->events);
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++self->num_events);
 
-    if (window == self->common->window)
+    if (window == self->window)
     {
         (void)window;
     }
-}
-
-// ================================================================================================================================
-
-extern void events_loop(void* common)
-{
-    Events self = { .common = common };
-    wyn_run(&self);
 }
 
 // ================================================================================================================================
