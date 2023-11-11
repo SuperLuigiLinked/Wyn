@@ -28,6 +28,8 @@
 
 struct App
 {
+    wyt_time_t epoch;
+    
     wyn_window_t window;
 
     size_t num_events;

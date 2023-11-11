@@ -7,7 +7,9 @@
 // ================================================================================================================================
 
 static void app_reinit(App* const self)
-{  
+{
+    self->epoch = wyt_nanotime();
+
     self->window = wyn_window_open();
     ASSERT(self->window != 0);
 
@@ -25,7 +27,7 @@ static void app_deinit(App* const self)
 
 // ================================================================================================================================
 
-extern void wyn_on_start(void* userdata)
+extern void wyn_on_start(void* const userdata)
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") START\n", ++self->num_events);
@@ -33,7 +35,7 @@ extern void wyn_on_start(void* userdata)
     app_reinit(self);
 }
 
-extern void wyn_on_stop(void* userdata)
+extern void wyn_on_stop(void* const userdata)
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") STOP\n", ++self->num_events);
@@ -41,7 +43,7 @@ extern void wyn_on_stop(void* userdata)
     app_deinit(self);
 }
 
-extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
+extern void wyn_on_window_close_request(void* const userdata, wyn_window_t const window)
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->num_events);
@@ -52,7 +54,7 @@ extern void wyn_on_window_close_request(void* userdata, wyn_window_t window)
     }
 }
 
-extern void wyn_on_window_redraw(void* userdata, wyn_window_t window)
+extern void wyn_on_window_redraw(void* const userdata, wyn_window_t const window)
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++self->num_events);
