@@ -49,15 +49,15 @@
  */
 struct wyn_state_t
 {
-    void* userdata;         ///< The pointer provided by the user when the Event Loop was started.
+    void* userdata; ///< The pointer provided by the user when the Event Loop was started.
     _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
     
-    HINSTANCE hinstance;    ///< HINSTANCE for the application.
-    HWND msg_hwnd;          ///< Message-only Window for sending messages.
-    ATOM msg_atom;          ///< Atom for the message-only Window.
-    ATOM wnd_atom;          ///< Atom for regular Windows.
+    HINSTANCE hinstance; ///< HINSTANCE for the application.
+    HWND msg_hwnd; ///< Message-only Window for sending messages.
+    ATOM msg_atom; ///< Atom for the message-only Window.
+    ATOM wnd_atom; ///< Atom for regular Windows.
 
-    DWORD tid_main;         ///< Thread ID of the Main Thread.
+    DWORD tid_main; ///< Thread ID of the Main Thread.
 };
 
 /**
@@ -255,6 +255,8 @@ static void wyn_run_native(void)
         [[maybe_unused]] const BOOL res1 = TranslateMessage(&msg);
         [[maybe_unused]] const LRESULT res2 = DispatchMessageW(&msg);
     }
+
+    wyn_quit();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -324,7 +326,6 @@ extern void wyn_run(void* userdata)
     {
         wyn_on_start(userdata);
         wyn_run_native();
-        wyn_quit();
         wyn_on_stop(userdata);
     }
     wyn_deinit();

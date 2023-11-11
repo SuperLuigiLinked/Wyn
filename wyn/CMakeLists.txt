@@ -76,8 +76,10 @@ target_compile_options(wyn
         "-Weverything"
         "-Wno-c++98-compat"
         "-Wno-declaration-after-statement"
+        "-Wno-gnu-empty-initializer"
         "-Wno-unused-macros"
         "-Wno-padded"
+        "-Wno-unsafe-buffer-usage"
 )
 
 # ================================================================================================================================

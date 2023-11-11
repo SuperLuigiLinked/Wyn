@@ -44,8 +44,8 @@
  */
 struct wyn_state_t 
 {
-    void* userdata;           ///< The pointer provided by the user when the Event Loop was started.
-    _Atomic(bool) quitting;   ///< Flag to indicate the Event Loop is quitting.
+    void* userdata; ///< The pointer provided by the user when the Event Loop was started.
+    _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
 
     wyn_delegate_t* delegate; ///< Instance of the Delegate Class.
 };
