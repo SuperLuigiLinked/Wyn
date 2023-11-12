@@ -18,6 +18,16 @@
 #define WYN_H
 
 // ================================================================================================================================
+//  Macros
+// --------------------------------------------------------------------------------------------------------------------------------
+
+#if defined(__cplusplus)    // C++
+    #define WYN_BOOL bool
+#else                       // C
+    #define WYN_BOOL _Bool
+#endif
+
+// ================================================================================================================================
 //  Type Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -53,14 +63,14 @@ extern void wyn_quit(void);
  * @return `true` if stopping, `false` otherwise.
  * @note This function may be called from any thread.
  */
-extern bool wyn_quitting(void);
+extern WYN_BOOL wyn_quitting(void);
 
 /**
  * @brief Queries whether or not the Event Loop is on the calling thread.
  * @return `true` if this thread is the Event Thread, `false` otherwise.
  * @note This function may be called from any thread.
  */
-extern bool wyn_is_this_thread(void);
+extern WYN_BOOL wyn_is_this_thread(void);
 
 /**
  * @brief Wakes up the Event Thread and calls the `wyn_on_signal` user-callback.

@@ -37,6 +37,7 @@ target_sources(wyn PUBLIC "include/wyn.h")
 if (WYN_USE_STUBS)
     # message(STATUS "Using `wyn_stubs.c`.")
     target_sources(wyn PRIVATE "src/wyn_stubs.c")
+    target_compile_definitions(wyn PUBLIC "WYN_STUBS")
 endif()
 
 if (WYN_USE_WIN32)
