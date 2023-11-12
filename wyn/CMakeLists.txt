@@ -26,7 +26,11 @@ endif()
 
 # ================================================================================================================================
 
-add_library(wyn)
+if (WYN_USE_STUBS)
+    add_library(wyn OBJECT)
+else()
+    add_library(wyn)
+endif()
 add_library(wyn::wyn ALIAS wyn)
 
 # ================================================================================================================================
@@ -35,7 +39,6 @@ target_include_directories(wyn PUBLIC "include/")
 target_sources(wyn PUBLIC "include/wyn.h")
 
 if (WYN_USE_STUBS)
-    # message(STATUS "Using `wyn_stubs.c`.")
     target_sources(wyn PRIVATE "src/wyn_stubs.c")
     target_compile_definitions(wyn PUBLIC "WYN_STUBS")
 endif()
