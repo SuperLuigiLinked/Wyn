@@ -26,7 +26,7 @@ endif()
 
 # ================================================================================================================================
 
-if (WYN_USE_STUBS)
+if (WYN_USE_STUBS AND NOT WIN32)
     add_library(wyn OBJECT)
 else()
     add_library(wyn)
