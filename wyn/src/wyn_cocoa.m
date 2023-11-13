@@ -16,12 +16,14 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.manpagez.com/man/3/abort/
+ * @see BSD:
+ * - https://www.manpagez.com/man/3/abort/
  */
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
 /**
- * @see https://en.cppreference.com/w/c/io/fprintf
+ * @see C:
+ * - https://en.cppreference.com/w/c/io/fprintf
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
@@ -32,9 +34,11 @@
 /**
  * @brief Delegate Class for dispatching to callbacks.
  *
- * @see https://developer.apple.com/documentation/objectivec/nsobject?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplicationdelegate?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindowdelegate?language=objc
+ * @see Obj-C:
+ * - https://developer.apple.com/documentation/objectivec/nsobject?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplicationdelegate?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate?language=objc
  */
 @interface wyn_delegate_t : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @end
@@ -91,10 +95,12 @@ static void wyn_run_native(void);
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/objectivec/nsobject/1571948-new?language=objc
- * @see https://developer.apple.com/documentation/objectivec/1418956-nsobject/1571951-autorelease?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428360-sharedapplication?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
+ * @see Obj-C:
+ * - https://developer.apple.com/documentation/objectivec/nsobject/1571948-new?language=objc
+ * - https://developer.apple.com/documentation/objectivec/1418956-nsobject/1571951-autorelease?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428360-sharedapplication?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
  */
 static bool wyn_reinit(void* userdata)
 {
@@ -117,10 +123,12 @@ static bool wyn_reinit(void* userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
+ * @see GCD:
+ * - https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * - https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
 static void wyn_deinit(void)
 {
@@ -135,8 +143,9 @@ static void wyn_deinit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1644472-enumeratewindowswithoptions?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1644472-enumeratewindowswithoptions?language=objc
  */
 static void wyn_close_callback(void* arg [[maybe_unused]])
 {
@@ -150,9 +159,10 @@ static void wyn_close_callback(void* arg [[maybe_unused]])
 }
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
  */
 static void wyn_stop_callback(void* arg [[maybe_unused]])
 {
@@ -162,7 +172,8 @@ static void wyn_stop_callback(void* arg [[maybe_unused]])
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
  */
 static void wyn_run_native(void)
 {
@@ -175,7 +186,8 @@ static void wyn_run_native(void)
 @implementation wyn_delegate_t
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428642-applicationshouldterminate?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428642-applicationshouldterminate?language=objc
  */
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender
 {
@@ -186,7 +198,8 @@ static void wyn_run_native(void)
 }
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindowdelegate/1419380-windowshouldclose?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419380-windowshouldclose?language=objc
  */
 - (BOOL)windowShouldClose:(NSWindow*)sender
 {
@@ -203,7 +216,8 @@ static void wyn_run_native(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html
+ * @see Cocoa:
+ * - https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html
  */
 extern void wyn_run(void* const userdata)
 {
@@ -222,11 +236,13 @@ extern void wyn_run(void* const userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_store
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428759-running?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
- * @see https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_store
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428759-running?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsevent/1533746-stopperiodicevents?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsevent/1526044-startperiodiceventsafterdelay?language=objc
  */
 extern void wyn_quit(void)
 {
@@ -243,7 +259,8 @@ extern void wyn_quit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
 extern bool wyn_quitting(void)
 {
@@ -253,7 +270,8 @@ extern bool wyn_quitting(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
  */
 extern bool wyn_is_this_thread(void)
 {
@@ -263,8 +281,9 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
- * @see https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
+ * @see GCD:
+ * - https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
+ * - https://developer.apple.com/documentation/dispatch/1453057-dispatch_async
  */
 extern void wyn_signal(void)
 {
@@ -276,66 +295,104 @@ extern void wyn_signal(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/objectivec/nsobject/1571958-alloc/
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419477-initwithcontentrect?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
+ * @see Obj-C:
+ * - https://developer.apple.com/documentation/objectivec/nsobject/1571958-alloc/
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419477-initwithcontentrect?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
  */
 extern wyn_window_t wyn_window_open(void)
 {
     const NSRect rect = { .origin = { .x = 0.0, .y = 0.0 }, .size = { .width = 640.0, .height = 480.0 } };
     const NSWindowStyleMask style = NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
-    NSWindow* const nsWnd = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
-    if (nsWnd)
+    NSWindow* const ns_window = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
+    if (ns_window)
     {
-        [nsWnd setDelegate:wyn_state.delegate];
-        [nsWnd center];
+        [ns_window setDelegate:wyn_state.delegate];
+        [ns_window center];
     }
-    return (wyn_window_t)nsWnd;
+    return (wyn_window_t)ns_window;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
  */
 extern void wyn_window_close(wyn_window_t const window)
 {
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd close];
+    NSWindow* const ns_window = (NSWindow*)window;
+    [ns_window close];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
  */
 extern void wyn_window_show(wyn_window_t const window)
 {
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd makeKeyAndOrderFront:nil];
+    NSWindow* const ns_window = (NSWindow*)window;
+    [ns_window makeKeyAndOrderFront:nil];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
  */
 extern void wyn_window_hide(wyn_window_t const window)
 {
-    NSWindow* const nsWnd = (NSWindow*)window;
-    [nsWnd orderOut:nil];
+    NSWindow* const ns_window = (NSWindow*)window;
+    [ns_window orderOut:nil];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419697-frame?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419108-contentrectforframerect?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419260-convertrecttobacking?language=objc
+ */
+extern wyn_size_t wyn_window_size(wyn_window_t const window)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    const NSRect frame = [ns_window frame];
+    const NSRect content = [ns_window contentRectForFrameRect:frame];
+    const NSRect backing = [ns_window convertRectToBacking:content];
+    return (wyn_size_t){ .w = (wyn_coord_t)(backing.size.width), .h = (wyn_coord_t)(backing.size.height) };
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419273-convertrectfrombacking?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419100-setcontentsize?language=objc
+ */
+extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    const NSRect backing = { .size = { .width = (CGFloat)(size.w), .height = (CGFloat)(size.h) } };
+    const NSRect content = [ns_window convertRectFromBacking:backing];
+    [ns_window setContentSize:content.size];
 }
 
 // ================================================================================================================================
 
 /**
- * @see https://developer.apple.com/documentation/appkit/nswindow/1419160-contentview?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419160-contentview?language=objc
  */
 extern void* wyn_native_context(wyn_window_t const window)
 {
-    NSWindow* const nsWnd = (NSWindow*)window;
-    return [nsWnd contentView];
+    NSWindow* const ns_window = (NSWindow*)window;
+    return [ns_window contentView];
 }
 
 // ================================================================================================================================
