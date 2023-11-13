@@ -17,18 +17,21 @@
 
 #ifdef _VC_NODEFAULTLIB
     /**
-     * @see https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
+     * @see Win32:
+     * - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
      */
     #define WYN_ASSERT(expr) if (expr) {} else FatalExit(1)
 #else
     /**
-     * @see https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
+     * @see Win32:
+     * - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
      */
     #define WYN_ASSERT(expr) if (expr) {} else abort()
 #endif
 
 /**
- * @see https://en.cppreference.com/w/c/io/fprintf
+ * @see C:
+ * - https://en.cppreference.com/w/c/io/fprintf
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
@@ -110,11 +113,13 @@ static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
- * @see https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createpipe
- * @see https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
+ * - https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadiconw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadcursorw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
 static bool wyn_reinit(void* const userdata)
 {
@@ -193,8 +198,9 @@ static bool wyn_reinit(void* const userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
  */
 static void wyn_deinit(void)
 {
@@ -219,7 +225,8 @@ static void wyn_deinit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumthreadwindows
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumthreadwindows
  */
 static void wyn_destroy_windows(void)
 {
@@ -227,8 +234,9 @@ static void wyn_destroy_windows(void)
 }
 
 /**
- * @see https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
 static BOOL CALLBACK wyn_destroy_windows_callback(HWND const hwnd, LPARAM const lparam [[maybe_unused]])
 {
@@ -239,9 +247,10 @@ static BOOL CALLBACK wyn_destroy_windows_callback(HWND const hwnd, LPARAM const 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessagew
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-dispatchmessagew
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessagew
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-dispatchmessagew
  */
 static void wyn_run_native(void)
 {
@@ -262,10 +271,11 @@ static void wyn_run_native(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
- * @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-app
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
+ * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-app
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
 static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
@@ -294,8 +304,9 @@ static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM con
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
 static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
@@ -334,8 +345,10 @@ extern void wyn_run(void* const userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_store
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_store
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
  */
 extern void wyn_quit(void)
 {
@@ -346,7 +359,8 @@ extern void wyn_quit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
 extern bool wyn_quitting(void)
 {
@@ -356,7 +370,8 @@ extern bool wyn_quitting(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
  */
 extern bool wyn_is_this_thread(void)
 {
@@ -366,7 +381,8 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
  */
 extern void wyn_signal(void)
 {
@@ -377,13 +393,14 @@ extern void wyn_signal(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
 extern wyn_window_t wyn_window_open(void)
 {
     const HWND hwnd = CreateWindowExW(
         WYN_EX_STYLE, WYN_WND_CLASS, L"", WYN_WS_STYLE,
-        0, 0, 640, 480,
+        CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, wyn_state.hinstance, NULL
     );
 
@@ -393,7 +410,8 @@ extern wyn_window_t wyn_window_open(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
 extern void wyn_window_close(wyn_window_t const window)
 {
@@ -404,7 +422,8 @@ extern void wyn_window_close(wyn_window_t const window)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
 extern void wyn_window_show(wyn_window_t const window)
 {
@@ -415,7 +434,8 @@ extern void wyn_window_show(wyn_window_t const window)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
 extern void wyn_window_hide(wyn_window_t const window)
 {
@@ -426,7 +446,8 @@ extern void wyn_window_hide(wyn_window_t const window)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
  */
 extern wyn_size_t wyn_window_size(wyn_window_t const window)
 {
@@ -439,17 +460,32 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
     return (wyn_size_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
 }
 
+// --------------------------------------------------------------------------------------------------------------------------------
+
 /**
- * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
  */
 extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
 {
     const HWND hwnd = (HWND)window;
-    const BOOL res = SetWindowPos(
-        hwnd, 0, 0, 0, (int)size.w, (int)size.h,
+
+    const UINT dpi = GetDpiForWindow(hwnd);
+    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+    RECT rect = { .right = (LONG)size.w, .bottom = (LONG)size.h };
+    const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
+    WYN_ASSERT(res_adj != 0);
+
+    const BOOL res_set = SetWindowPos(
+        hwnd, 0, 0, 0, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
     );
-    WYN_ASSERT(res != 0);
+    WYN_ASSERT(res_set != 0);
 }
 
 // ================================================================================================================================
