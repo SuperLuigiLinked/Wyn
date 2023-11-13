@@ -370,7 +370,8 @@ extern bool wyn_is_this_thread(void)
  */
 extern void wyn_signal(void)
 {
-    [[maybe_unused]] const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+    const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+    WYN_ASSERT(res != 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -420,6 +421,22 @@ extern void wyn_window_hide(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
     [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_HIDE);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
+ */
+extern wyn_size_t wyn_window_size(wyn_window_t window)
+{
+    const HWND hwnd = (HWND)window;
+
+    RECT rect;
+    const BOOL res = GetClientRect(hwnd, &rect);
+    WYN_ASSERT(res != 0);
+
+    return (wyn_size_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
 }
 
 // ================================================================================================================================

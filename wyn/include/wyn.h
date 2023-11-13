@@ -36,6 +36,29 @@
  */
 typedef void* wyn_window_t;
 
+/**
+ * @brief Unit for a coordinate/extent.
+ */
+typedef double wyn_coord_t;
+
+/**
+ * @brief A 2D Point.
+ */
+struct wyn_point_t { wyn_coord_t x, y; };
+typedef struct wyn_point_t wyn_point_t;
+
+/**
+ * @brief A 2D Size.
+ */
+struct wyn_size_t { wyn_coord_t w, h; };
+typedef struct wyn_size_t wyn_size_t;
+
+/**
+ * @brief A 2D Rectangle.
+ */
+struct wyn_rect_t { wyn_point_t center; wyn_size_t size; };
+typedef struct wyn_rect_t wyn_rect_t;
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -104,6 +127,13 @@ extern void wyn_window_show(wyn_window_t window);
  * @param[in] window [non-null] A handle to the Window.
  */
 extern void wyn_window_hide(wyn_window_t window);
+
+/**
+ * @brief Queries the size of a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @return The size of the Window's framebuffer, in Pixels.
+ */
+extern wyn_size_t wyn_window_size(wyn_window_t window);
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
