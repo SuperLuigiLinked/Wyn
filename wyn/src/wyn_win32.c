@@ -8,6 +8,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <Windows.h>
 
@@ -472,12 +473,14 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
 extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
 {
     const HWND hwnd = (HWND)window;
+    const wyn_coord_t rounded_w = ceil(size.w);
+    const wyn_coord_t rounded_h = ceil(size.h);
 
     const UINT dpi = GetDpiForWindow(hwnd);
     const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
     const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
 
-    RECT rect = { .right = (LONG)size.w, .bottom = (LONG)size.h };
+    RECT rect = { .right = (LONG)rounded_w, .bottom = (LONG)rounded_h };
     const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
     WYN_ASSERT(res_adj != 0);
 
