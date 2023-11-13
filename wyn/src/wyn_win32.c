@@ -116,7 +116,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM 
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
  */
-static bool wyn_reinit(void* userdata)
+static bool wyn_reinit(void* const userdata)
 {
     wyn_state = (struct wyn_state_t){
         .userdata = userdata,
@@ -230,7 +230,7 @@ static void wyn_destroy_windows(void)
  * @see https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
-static BOOL CALLBACK wyn_destroy_windows_callback(HWND hwnd, LPARAM lparam [[maybe_unused]])
+static BOOL CALLBACK wyn_destroy_windows_callback(HWND const hwnd, LPARAM const lparam [[maybe_unused]])
 {
     [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
     return TRUE;
@@ -267,7 +267,7 @@ static void wyn_run_native(void)
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
-static LRESULT CALLBACK wyn_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
     //WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
 
@@ -297,7 +297,7 @@ static LRESULT CALLBACK wyn_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM 
  * @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
  */
-static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
     //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
 
@@ -320,7 +320,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM 
 //  Public Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyn_run(void* userdata)
+extern void wyn_run(void* const userdata)
 {
     if (wyn_reinit(userdata))
     {
@@ -394,7 +394,7 @@ extern wyn_window_t wyn_window_open(void)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
  */
-extern void wyn_window_close(wyn_window_t window)
+extern void wyn_window_close(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
     [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
@@ -405,7 +405,7 @@ extern void wyn_window_close(wyn_window_t window)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
-extern void wyn_window_show(wyn_window_t window)
+extern void wyn_window_show(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
     [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_SHOW);
@@ -416,10 +416,18 @@ extern void wyn_window_show(wyn_window_t window)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
  */
-extern void wyn_window_hide(wyn_window_t window)
+extern void wyn_window_hide(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
     [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_HIDE);
+}
+
+// ================================================================================================================================
+
+extern void* wyn_native_context(wyn_window_t const window)
+{
+    (void)window;
+    return wyn_state.hinstance;
 }
 
 // ================================================================================================================================

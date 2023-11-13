@@ -205,7 +205,7 @@ static void wyn_run_native(void)
 /**
  * @see https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/MemoryMgmt/Articles/mmAutoreleasePools.html
  */
-extern void wyn_run(void* userdata)
+extern void wyn_run(void* const userdata)
 {
     @autoreleasepool
     {
@@ -299,7 +299,7 @@ extern wyn_window_t wyn_window_open(void)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
  */
-extern void wyn_window_close(wyn_window_t window)
+extern void wyn_window_close(wyn_window_t const window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd close];
@@ -310,7 +310,7 @@ extern void wyn_window_close(wyn_window_t window)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419208-makekeyandorderfront?language=objc
  */
-extern void wyn_window_show(wyn_window_t window)
+extern void wyn_window_show(wyn_window_t const window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd makeKeyAndOrderFront:nil];
@@ -321,10 +321,21 @@ extern void wyn_window_show(wyn_window_t window)
 /**
  * @see https://developer.apple.com/documentation/appkit/nswindow/1419660-orderout?language=objc
  */
-extern void wyn_window_hide(wyn_window_t window)
+extern void wyn_window_hide(wyn_window_t const window)
 {
     NSWindow* const nsWnd = (NSWindow*)window;
     [nsWnd orderOut:nil];
+}
+
+// ================================================================================================================================
+
+/**
+ * @see https://developer.apple.com/documentation/appkit/nswindow/1419160-contentview?language=objc
+ */
+extern void* wyn_native_context(wyn_window_t const window)
+{
+    NSWindow* const nsWnd = (NSWindow*)window;
+    return [nsWnd contentView];
 }
 
 // ================================================================================================================================

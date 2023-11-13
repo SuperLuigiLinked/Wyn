@@ -637,3 +637,17 @@ extern void wyn_window_hide(wyn_window_t const window)
 }
 
 // ================================================================================================================================
+
+extern void* wyn_native_context(wyn_window_t const window)
+{
+    (void)window;
+#if defined(WYN_X11)
+    return wyn_state.xcb_connection;
+#elif defined(WYN_XLIB)
+    return wyn_state.xlib_display;
+#elif defined(WYN_XCB)
+    return wyn_state.xcb_connection;
+#endif
+}
+
+// ================================================================================================================================

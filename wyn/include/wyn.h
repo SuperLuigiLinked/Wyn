@@ -107,6 +107,22 @@ extern void wyn_window_hide(wyn_window_t window);
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @brief Returns platform-specific data, potentially associated with a Window.
+ * @param[in] window [non-null] A handle to a Window.
+ * @return [nullable]
+ * -    Win32: (HWND) -> HINSTANCE
+ * -     Xlib: (Window) -> Display*
+ * -      Xcb: (xcb_window_t) -> xcb_connection_t*
+ * - Xlib-Xcb: (xcb_window_t) -> xcb_connection_t*
+ * -  Wayland: (wl_surface*) -> wl_display*
+ * -    Cocoa: (NSWindow*) -> NSView*
+ * @note This function may be called from any thread.
+ */
+extern void* wyn_native_context(wyn_window_t window);
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
 #ifdef __cplusplus
 }
 #endif
