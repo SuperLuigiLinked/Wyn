@@ -135,6 +135,13 @@ extern void wyn_window_hide(wyn_window_t window);
  */
 extern wyn_size_t wyn_window_size(wyn_window_t window);
 
+/**
+ * @brief Resizes a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @param size The new size of the Window's framebuffer, in Pixels.
+ */
+extern void wyn_window_resize(wyn_window_t window, wyn_size_t size);
+
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**

@@ -428,7 +428,7 @@ extern void wyn_window_hide(wyn_window_t const window)
 /**
  * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
  */
-extern wyn_size_t wyn_window_size(wyn_window_t window)
+extern wyn_size_t wyn_window_size(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
 
@@ -437,6 +437,19 @@ extern wyn_size_t wyn_window_size(wyn_window_t window)
     WYN_ASSERT(res != 0);
 
     return (wyn_size_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
+}
+
+/**
+ * @see https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+ */
+extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+{
+    const HWND hwnd = (HWND)window;
+    const BOOL res = SetWindowPos(
+        hwnd, 0, 0, 0, (int)size.w, (int)size.h,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
+    );
+    WYN_ASSERT(res != 0);
 }
 
 // ================================================================================================================================
