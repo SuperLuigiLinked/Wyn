@@ -71,6 +71,10 @@ else()
     message(FATAL_ERROR "No Wyn backend selected!")
 endif()
 
+if (UNIX AND NOT APPLE)
+    target_link_libraries(wyn "m")
+endif()
+
 # ================================================================================================================================
 
 target_compile_features(wyn PRIVATE c_std_23)

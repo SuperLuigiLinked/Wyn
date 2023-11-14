@@ -13,6 +13,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <unistd.h>
 #include <fcntl.h> 
@@ -121,8 +122,9 @@ static void wyn_run_native(void);
 
 /**
  * @brief Responds to all pending X11 Events.
+ * @param sync If true, syncs with the X Server before polling events.
  */
-static void wyn_dispatch_x11(void);
+static void wyn_dispatch_x11(bool sync);
 
 /**
  * @brief Responds to all pending Signal Events.
@@ -289,7 +291,7 @@ static void wyn_run_native(void)
         {
             if (x11_events != POLLIN) WYN_LOG("[POLL-X11] %04hX\n", x11_events);
             WYN_ASSERT(x11_events == POLLIN);
-            wyn_dispatch_x11();
+            wyn_dispatch_x11(false);
         }
     }
 
@@ -307,9 +309,14 @@ static void wyn_run_native(void)
  * - https://tronche.com/gui/x/icccm/sec-4.html#WM_PROTOCOLS
  * - https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
  */
-static void wyn_dispatch_x11(void)
+static void wyn_dispatch_x11(bool const sync)
 {
     #define WYN_EVT_LOG(...) // WYN_LOG(__VA_ARGS__)
+
+    if (sync)
+    {
+        [[maybe_unused]] const int res = XSync(wyn_state.xlib_display, False);
+    }
 
     while (XPending(wyn_state.xlib_display) > 0)
     {       
@@ -616,6 +623,7 @@ extern void wyn_window_show(wyn_window_t const window)
 #if defined(WYN_XLIB)
     const Window xWnd = (Window)window;
     [[maybe_unused]] const int res = XMapRaised(wyn_state.xlib_display, xWnd);
+    wyn_dispatch_x11(true);
 #elif defined(WYN_X11) || defined(WYN_XCB)
     #error "Unimplemented"
 #endif
@@ -631,7 +639,49 @@ extern void wyn_window_hide(wyn_window_t const window)
 #if defined(WYN_XLIB)
     const Window xWnd = (Window)window;
     [[maybe_unused]] const int res = XUnmapWindow(wyn_state.xlib_display, xWnd);
+    wyn_dispatch_x11(true);
 #elif defined(WYN_X11) || defined(WYN_XCB)
+    #error "Unimplemented"
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XGetWindowAttributes.3.xhtml
+ */
+extern wyn_size_t wyn_window_size(wyn_window_t const window)
+{
+#if defined(WYN_XLIB)
+    const Window xWnd = (Window)window;
+    
+    XWindowAttributes attr;
+    const Status res = XGetWindowAttributes(wyn_state.xlib_display, xWnd, &attr);
+    WYN_ASSERT(res != 0);
+    
+    return (wyn_size_t){ .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) };
+#else
+    #error "Unimplemented"
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml
+ */
+extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+{
+#if defined(WYN_XLIB)
+    const Window xWnd = (Window)window;
+    const wyn_coord_t rounded_w = ceil(size.w);
+    const wyn_coord_t rounded_h = ceil(size.h);
+
+    [[maybe_unused]] const int res = XResizeWindow(wyn_state.xlib_display, xWnd, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    wyn_dispatch_x11(true);
+#else
     #error "Unimplemented"
 #endif
 }
