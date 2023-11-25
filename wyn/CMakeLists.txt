@@ -83,6 +83,7 @@ target_compile_options(wyn
     PRIVATE
         "-Weverything"
         "-Wno-c++98-compat"
+        "-Wno-pre-c2x-compat"
         "-Wno-declaration-after-statement"
         "-Wno-gnu-empty-initializer"
         "-Wno-unused-macros"
