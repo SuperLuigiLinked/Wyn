@@ -129,6 +129,14 @@ extern void wyn_window_show(wyn_window_t window);
 extern void wyn_window_hide(wyn_window_t window);
 
 /**
+ * @brief Queries the scale of a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @return The scale of the Window relative to the pixel resolution of its framebuffer.
+ * @note On most platforms, this value is always `1.0`. Some platforms (e.g. MacOS) may return other values, like `2.0`.
+ */
+extern double wyn_window_scale(wyn_window_t window);
+
+/**
  * @brief Queries the size of a Window.
  * @param[in] window [non-null] A handle to the Window.
  * @return The size of the Window's framebuffer, in Pixels.

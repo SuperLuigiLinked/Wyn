@@ -355,6 +355,19 @@ extern void wyn_window_hide(wyn_window_t const window)
 
 /**
  * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419459-backingscalefactor?language=objc
+ */
+extern double wyn_window_scale(wyn_window_t const window)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    const CGFloat scale = [ns_window backingScaleFactor];
+    return (double)scale;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see AppKit:
  * - https://developer.apple.com/documentation/appkit/nswindow/1419697-frame?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419108-contentrectforframerect?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419260-convertrecttobacking?language=objc

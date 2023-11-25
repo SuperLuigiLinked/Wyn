@@ -446,6 +446,14 @@ extern void wyn_window_hide(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+extern double wyn_window_scale(wyn_window_t const window)
+{
+    (void)window;
+    return 1.0;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
 /**
  * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect

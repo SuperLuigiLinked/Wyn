@@ -647,6 +647,14 @@ extern void wyn_window_hide(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
+extern double wyn_window_scale(wyn_window_t const window)
+{
+    (void)window;
+    return 1.0;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
 /**
  * @see Xlib:
  * - https://www.x.org/releases/current/doc/man/man3/XGetWindowAttributes.3.xhtml
