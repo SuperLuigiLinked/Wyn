@@ -56,8 +56,18 @@ typedef struct wyn_size_t wyn_size_t;
 /**
  * @brief A 2D Rectangle.
  */
-struct wyn_rect_t { wyn_point_t center; wyn_size_t size; };
+struct wyn_rect_t { wyn_point_t origin; wyn_size_t size; };
 typedef struct wyn_rect_t wyn_rect_t;
+
+/**
+ * @brief A virtual code representing a button on a mouse.
+ */
+typedef unsigned short wyn_button_t;
+
+/**
+ * @brief A virtual code representing a key on a keyboard.
+ */
+typedef unsigned short wyn_keycode_t;
 
 // ================================================================================================================================
 //  API Functions
@@ -131,7 +141,7 @@ extern void wyn_window_hide(wyn_window_t window);
 /**
  * @brief Queries the scale of a Window.
  * @param[in] window [non-null] A handle to the Window.
- * @return The scale of the Window relative to the pixel resolution of its framebuffer.
+ * @return The scale to convert from Screen Coordinates to Pixel Coordinates.
  * @note On most platforms, this value is always `1.0`. Some platforms (e.g. MacOS) may return other values, like `2.0`.
  */
 extern double wyn_window_scale(wyn_window_t window);
@@ -214,6 +224,61 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window);
  * @param[in] window   [non-null] A handle to the Window that needs its contents redrawn.
  */
 extern void wyn_on_window_redraw(void* userdata, wyn_window_t window);
+
+/**
+ * @brief Called when a Window is resized.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window that was resized.
+ * @param[in] pw       The new Width of the Window's content rectangle, in Screen Coordinates.
+ * @param[in] ph       The new Height of the Window's content rectangle, in Screen Coordinates.
+ */
+extern void wyn_on_window_resize(void* userdata, wyn_window_t window, wyn_coord_t pw, wyn_coord_t ph);
+
+/**
+ * @brief Called when a Cursor is moved across a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ * @param[in] px       The new X-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ * @param[in] py       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ */
+extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, wyn_coord_t py);
+
+/**
+ * @brief Called when a Scroll input occurs on a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ * @param[in] delta    The signed distance the Scroll occurred.
+ */
+extern void wyn_on_scroll(void* userdata, wyn_window_t window, int delta);
+
+/**
+ * @brief Called when a Mouse Button is pressed/released on a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ * @param[in] button   The virtual code representing the Button.
+ * @param[in] pressed  `true` if the button was pressed, `false` if the button was released.
+ * @note Different platforms use different Virtual Codes to represent different Mouse Buttons.
+ */
+extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t button, bool pressed);
+
+/**
+ * @brief Called when a Key is pressed/released on a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ * @param[in] keycode   The virtual code representing the Key.
+ * @param[in] pressed  `true` if the key was pressed, `false` if the key was released.
+ * @note Different platforms use different Virtual Codes to represent different Keys.
+ */
+extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, bool pressed);
+
+/**
+ * @brief Called when a Character is input on a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ * @param[in] codeunit The UTF-8 encoded Code Unit corresponding to the character.
+ * @note Some characters consist of multiple code units.
+ */
+extern void wyn_on_character(void* userdata, wyn_window_t window, unsigned char codeunit);
 
 #ifdef __cplusplus
 }
