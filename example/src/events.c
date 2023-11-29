@@ -60,23 +60,66 @@ extern void wyn_on_signal(void* const userdata)
 extern void wyn_on_window_close(void* const userdata, wyn_window_t const window)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") CLOSE\n", ++self->num_events);
-
-    if (window == self->window)
-    {
-        wyn_quit();
-    }
+    LOG("[EVENTS] (%"PRIu64") {%p} CLOSE\n", ++self->num_events, (void*)window);
+    if (window != self->window) return;
+    
+    wyn_quit();
 }
 
 extern void wyn_on_window_redraw(void* const userdata, wyn_window_t const window)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") REDRAW\n", ++self->num_events);
+    LOG("[EVENTS] (%"PRIu64") {%p} REDRAW\n", ++self->num_events, (void*)window);
+    if (window != self->window) return;
 
-    if (window == self->window)
-    {
-        (void)window;
-    }
+}
+
+extern void wyn_on_window_resize(void* const userdata, wyn_window_t const window, wyn_coord_t const pw, wyn_coord_t const ph)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} RESIZE | (%f x %f)\n", ++self->num_events, (void*)window, (double)pw, (double)ph);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_coord_t const px, wyn_coord_t const py)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} CURSOR | (%f , %f)\n", ++self->num_events, (void*)window, (double)px, (double)py);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_scroll(void* const userdata, wyn_window_t const window, int const dx, int const dy)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} SCROLL | [%d , %d]\n", ++self->num_events, (void*)window, (int)dx, (int)dy);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_mouse(void* const userdata, wyn_window_t const window, wyn_button_t const button, bool const pressed)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} MOUSE | %d (%d)\n", ++self->num_events, (void*)window, (int)button, (int)pressed);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn_keycode_t const keycode, bool const pressed)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} KEYBOARD | %d (%d)\n", ++self->num_events, (void*)window, (int)keycode, (int)pressed);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_character(void* const userdata, wyn_window_t const window, wyn_utf8_t const code)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} CHARACTER | %3d '%c'\n", ++self->num_events, (void*)window, (int)code, (char)code);
+    if (window != self->window) return;
+
 }
 
 // ================================================================================================================================

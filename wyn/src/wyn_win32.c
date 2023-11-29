@@ -11,6 +11,7 @@
 #include <math.h>
 
 #include <Windows.h>
+#include <windowsx.h>
 
 // ================================================================================================================================
 //  Private Macros
@@ -304,11 +305,6 @@ static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM con
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
- */
 static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
     //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
@@ -317,13 +313,265 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
 
     switch (umsg)
     {
+        // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
         case WM_CLOSE:
         {
             wyn_on_window_close(wyn_state.userdata, window);
             return 0;
         }
+
+        // https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint
+        case WM_PAINT:
+        {
+            wyn_on_window_redraw(wyn_state.userdata, window);
+            break; //return 0;
+        }
+
+        // // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
+        // case WM_WINDOWPOSCHANGED:
+        // {
+        //     const WINDOWPOS* const pos = (const WINDOWPOS*)lparam;
+        //     if (pos) wyn_on_window_resize(wyn_state.userdata, window, (wyn_coord_t)pos->cx, (wyn_coord_t)pos->cy);
+        //     return 0;
+        // }
+
+        case WM_SIZE:
+        {
+            const WORD w = LOWORD(lparam);
+            const WORD h = HIWORD(lparam);
+            wyn_on_window_resize(wyn_state.userdata, window, (wyn_coord_t)w, (wyn_coord_t)h);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousemove
+        case WM_MOUSEMOVE:
+        {
+            const int xpos = GET_X_LPARAM(lparam);
+            const int ypos = GET_Y_LPARAM(lparam);
+            wyn_on_cursor(wyn_state.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehover
+        case WM_MOUSEHOVER:
+        {
+            // WYN_LOG("[WYN] WM_MOUSEHOVER\n");
+            break;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
+        case WM_MOUSELEAVE:
+        {
+            // WYN_LOG("[WYN] WM_MOUSELEAVE\n");
+            break;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousewheel
+        case WM_MOUSEWHEEL:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // delta / WHEEL_DELTA
+            wyn_on_scroll(wyn_state.userdata, window, 0, delta);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehwheel
+        case WM_MOUSEHWHEEL:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // delta / WHEEL_DELTA
+            wyn_on_scroll(wyn_state.userdata, window, delta, 0);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown
+        case WM_LBUTTONDOWN:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_LBUTTON, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttondown
+        case WM_RBUTTONDOWN:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_RBUTTON, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttondown
+        case WM_MBUTTONDOWN:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_MBUTTON, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttondown
+        case WM_XBUTTONDOWN:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            [[maybe_unused]] const WORD button = GET_XBUTTON_WPARAM (wparam);
+            if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, true);
+            if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttonup
+        case WM_LBUTTONUP:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_LBUTTON, false);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttonup
+        case WM_RBUTTONUP:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_RBUTTON, false);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttonup
+        case WM_MBUTTONUP:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_MBUTTON, false);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttonup
+        case WM_XBUTTONUP:
+        {
+            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
+            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
+            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            [[maybe_unused]] const WORD button = GET_XBUTTON_WPARAM (wparam);
+            if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, false);
+            if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, false);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-char
+        case WM_CHAR:
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syschar
+        case WM_SYSCHAR:
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-deadchar
+        case WM_DEADCHAR:
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-sysdeadchar
+        case WM_SYSDEADCHAR:
+        {
+            // { [0] = High, [1] = Low }
+            static WCHAR surrogates[2] = {};
+
+            if (IS_HIGH_SURROGATE(wparam))
+            {
+                surrogates[0] = (WCHAR)wparam;
+            }
+            else if (IS_LOW_SURROGATE(wparam))
+            {
+                surrogates[1] = (WCHAR)wparam;
+            }
+            else
+            {
+                surrogates[0] = 0;
+                surrogates[1] = 0;
+            }
+
+            WCHAR src_chr[2];
+            int src_len;
+
+            if (surrogates[0] || surrogates[1])
+            {
+                if (IS_SURROGATE_PAIR(surrogates[0], surrogates[1]))
+                {
+                    src_chr[0] = surrogates[0];
+                    src_chr[1] = surrogates[1];
+                    src_len = 2;
+                }
+                else
+                {
+                    src_len = 0;
+                }
+
+                if (surrogates[0] && surrogates[1])
+                {
+                    surrogates[0] = 0;
+                    surrogates[1] = 0;
+                }
+            }
+            else
+            {
+                src_chr[0] = (WCHAR)wparam;
+                src_len = 1;
+            }
+
+            if (src_len > 0)
+            {
+                // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
+                char dst_chr[16];
+                const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr), NULL, NULL);
+
+                for (int i = 0; i < dst_len; ++i)
+                {
+                    wyn_on_character(wyn_state.userdata, window, (wyn_utf8_t)dst_chr[i]);
+                }
+            }
+
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
+        case WM_KEYDOWN:
+        {
+            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown
+        case WM_SYSKEYDOWN:
+        {
+            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, true);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keyup
+        case WM_KEYUP:
+        {
+            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, false);
+            return 0;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeyup
+        case WM_SYSKEYUP:
+        {
+            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, false);
+            return 0;
+        }
+
     }
 
+    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
     const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
     return res;
 }

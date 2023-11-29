@@ -28,8 +28,8 @@ extern void __attribute__((weak)) wyn_on_window_resize(void* userdata, wyn_windo
 extern void __attribute__((weak)) wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, wyn_coord_t py)
 { (void)userdata; (void)window; (void)px; (void)py; }
 
-extern void __attribute__((weak)) wyn_on_scroll(void* userdata, wyn_window_t window, int delta)
-{ (void)userdata; (void)window; (void)delta; }
+extern void __attribute__((weak)) wyn_on_scroll(void* userdata, wyn_window_t window, int dx, int dy)
+{ (void)userdata; (void)window; (void)dx; (void)dy; }
 
 extern void __attribute__((weak)) wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t button, bool pressed)
 { (void)userdata; (void)window; (void)button; (void)pressed; }
@@ -37,7 +37,7 @@ extern void __attribute__((weak)) wyn_on_mouse(void* userdata, wyn_window_t wind
 extern void __attribute__((weak)) wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, bool pressed)
 { (void)userdata; (void)window; (void)keycode; (void)pressed; }
 
-extern void __attribute__((weak)) wyn_on_character(void* userdata, wyn_window_t window, unsigned char codeunit)
-{ (void)userdata; (void)window; (void)codeunit; }
+extern void __attribute__((weak)) wyn_on_character(void* userdata, wyn_window_t window, wyn_utf8_t code)
+{ (void)userdata; (void)window; (void)code; }
 
 // ================================================================================================================================

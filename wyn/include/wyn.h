@@ -69,6 +69,11 @@ typedef unsigned short wyn_button_t;
  */
 typedef unsigned short wyn_keycode_t;
 
+/**
+ * @brief A character type capable of holding UTF-8 code units.
+ */
+typedef unsigned char wyn_utf8_t;
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -247,9 +252,10 @@ extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, w
  * @brief Called when a Scroll input occurs on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] delta    The signed distance the Scroll occurred.
+ * @param[in] dx       The horizontal scroll delta.
+ * @param[in] dy       The vertical scroll delta.
  */
-extern void wyn_on_scroll(void* userdata, wyn_window_t window, int delta);
+extern void wyn_on_scroll(void* userdata, wyn_window_t window, int dx, int dy);
 
 /**
  * @brief Called when a Mouse Button is pressed/released on a Window.
@@ -275,10 +281,10 @@ extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t k
  * @brief Called when a Character is input on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] codeunit The UTF-8 encoded Code Unit corresponding to the character.
+ * @param[in] code     The UTF-8 code unit corresponding to the character.
  * @note Some characters consist of multiple code units.
  */
-extern void wyn_on_character(void* userdata, wyn_window_t window, unsigned char codeunit);
+extern void wyn_on_character(void* userdata, wyn_window_t window, wyn_utf8_t code);
 
 #ifdef __cplusplus
 }
