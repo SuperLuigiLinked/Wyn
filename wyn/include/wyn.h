@@ -165,6 +165,13 @@ extern wyn_size_t wyn_window_size(wyn_window_t window);
  */
 extern void wyn_window_resize(wyn_window_t window, wyn_size_t size);
 
+/**
+ * @brief Sets the title of a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @param[in] title  [nullable] A NULL-terminated UTF-8 encoded Text for the title, or NULL to reset the title.
+ */
+extern void wyn_window_retitle(wyn_window_t window, const wyn_utf8_t* title);
+
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**

@@ -14,11 +14,12 @@ static void app_reinit(App* const self)
     ASSERT(self->window != 0);
 
     const wyn_size_t old_size = wyn_window_size(self->window);
-    wyn_window_resize(self->window, (wyn_size_t){ .w = 640.0, .h = 480.0 });
+    const double scale = wyn_window_scale(self->window);
+    wyn_window_resize(self->window, (wyn_size_t){ .w = 640.0 * scale, .h = 480.0 * scale });
     const wyn_size_t new_size = wyn_window_size(self->window);
-    
-    LOG("[APP] (%.2f x %.2f) -> (%.2f x %.2f)\n", (double)old_size.w, (double)old_size.h, (double)new_size.w, (double)new_size.h);
+    LOG("[APP] (%.2f x %.2f) -> (%.2f x %.2f) [%.2f]\n", (double)old_size.w, (double)old_size.h, (double)new_size.w, (double)new_size.h, (double)scale);
 
+    wyn_window_retitle(self->window, (const wyn_utf8_t*)u8"Wyn Example");
     wyn_window_show(self->window);
 }
 

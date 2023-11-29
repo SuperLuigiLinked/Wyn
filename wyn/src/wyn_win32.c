@@ -372,7 +372,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // delta / WHEEL_DELTA
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // |delta| == WHEEL_DELTA
             wyn_on_scroll(wyn_state.userdata, window, 0, delta);
             return 0;
         }
@@ -383,7 +383,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // delta / WHEEL_DELTA
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // |delta| == WHEEL_DELTA
             wyn_on_scroll(wyn_state.userdata, window, delta, 0);
             return 0;
         }
@@ -424,7 +424,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            [[maybe_unused]] const WORD button = GET_XBUTTON_WPARAM (wparam);
+            const WORD button = GET_XBUTTON_WPARAM(wparam);
             if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, true);
             if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, true);
             return 0;
@@ -466,7 +466,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            [[maybe_unused]] const WORD button = GET_XBUTTON_WPARAM (wparam);
+            const WORD button = GET_XBUTTON_WPARAM(wparam);
             if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, false);
             if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, false);
             return 0;
@@ -482,7 +482,9 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         case WM_SYSDEADCHAR:
         {
             // { [0] = High, [1] = Low }
-            static WCHAR surrogates[2] = {};
+            static WCHAR surrogates[2] = { 0, 0 };
+
+            // ----------------------------------------------------------------
 
             if (IS_HIGH_SURROGATE(wparam))
             {
@@ -497,6 +499,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
                 surrogates[0] = 0;
                 surrogates[1] = 0;
             }
+
+            // ----------------------------------------------------------------
 
             WCHAR src_chr[2];
             int src_len;
@@ -526,28 +530,32 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
                 src_len = 1;
             }
 
+            // ----------------------------------------------------------------
+
             if (src_len > 0)
             {
                 // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
-                char dst_chr[16];
+                char dst_chr[4];
                 const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr), NULL, NULL);
 
+                // if (umsg == WM_CHAR       ) WYN_LOG("[WYN] WM_CHAR        : [%d] \"%.4s\"\n", dst_len, dst_chr);
+                // if (umsg == WM_SYSCHAR    ) WYN_LOG("[WYN] WM_SYSCHAR     : [%d] \"%.4s\"\n", dst_len, dst_chr);
+                // if (umsg == WM_DEADCHAR   ) WYN_LOG("[WYN] WM_DEADCHAR    : [%d] \"%.4s\"\n", dst_len, dst_chr);
+                // if (umsg == WM_SYSDEADCHAR) WYN_LOG("[WYN] WM_SYSDEADCHAR : [%d] \"%.4s\"\n", dst_len, dst_chr);
+                
                 for (int i = 0; i < dst_len; ++i)
                 {
                     wyn_on_character(wyn_state.userdata, window, (wyn_utf8_t)dst_chr[i]);
                 }
             }
 
+            // ----------------------------------------------------------------
+
             return 0;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
         case WM_KEYDOWN:
-        {
-            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, true);
-            return 0;
-        }
-
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown
         case WM_SYSKEYDOWN:
         {
@@ -557,11 +565,6 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
 
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keyup
         case WM_KEYUP:
-        {
-            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, false);
-            return 0;
-        }
-
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeyup
         case WM_SYSKEYUP:
         {
@@ -569,6 +572,10 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             return 0;
         }
 
+        // default:
+        // {
+        //     WYN_LOG("[WYN] UMSG: %u\n", (unsigned)umsg);
+        // }
     }
 
     // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
@@ -746,6 +753,40 @@ extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
     );
     WYN_ASSERT(res_set != 0);
 }
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* const title)
+{
+    if (title)
+    {
+        // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
+        const int req_chr = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, NULL, 0);
+        WYN_ASSERT(req_chr > 0);
+
+        // https://en.cppreference.com/w/c/memory/malloc
+        WCHAR* const allocation = malloc((size_t)req_chr * sizeof(WCHAR));
+        WYN_ASSERT(allocation);
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
+        const int res_cvt = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, allocation, req_chr);
+        WYN_ASSERT(res_cvt == req_chr);
+
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowtextw
+        const BOOL res = SetWindowTextW((HWND)window, allocation);
+        WYN_ASSERT(res != 0);
+
+        // https://en.cppreference.com/w/c/memory/free
+        free(allocation);
+    }
+    else
+    {
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowtextw
+        const BOOL res = SetWindowTextW((HWND)window, L"");
+        WYN_ASSERT(res != 0);
+    }
+}
+
 
 // ================================================================================================================================
 

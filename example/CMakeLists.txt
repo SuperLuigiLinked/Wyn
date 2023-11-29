@@ -25,6 +25,7 @@ target_compile_options(wyn_example
         "-Weverything"
         "-Wno-c++98-compat"
         "-Wno-c++17-extensions"
+        "-Wno-c99-compat"
         "-Wno-pre-c2x-compat"
         "-Wno-fixed-enum-extension"
         "-Wno-microsoft-fixed-enum"
