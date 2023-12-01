@@ -194,8 +194,6 @@ static void wyn_run_native(void)
  */
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender
 {
-    // WYN_LOG("[OBJC] applicationShouldTerminate:\n");
-
     wyn_quit();
     return NSTerminateCancel;
 }
@@ -206,10 +204,18 @@ static void wyn_run_native(void)
  */
 - (BOOL)windowShouldClose:(NSWindow*)sender
 {
-    const wyn_window_t window = (wyn_window_t)sender;
-
-    wyn_on_window_close(wyn_state.userdata, window);
+    wyn_on_window_close(wyn_state.userdata, (wyn_window_t)sender);
     return FALSE;
+}
+
+/**
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419258-windowdidexpose?language=objc
+ */
+- (void)windowDidExpose:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)ns_window);
 }
 
 /**
