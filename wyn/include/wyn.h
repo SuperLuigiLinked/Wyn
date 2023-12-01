@@ -288,8 +288,7 @@ extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t k
  * @brief Called when a Text is input on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] text     [non-null] The UTF-8 encoded text.
- * @note Some characters consist of multiple code units.
+ * @param[in] text     [non-null] The NULL-terminated UTF-8 encoded text.
  */
 extern void wyn_on_text(void* userdata, wyn_window_t window, const wyn_utf8_t* text);
 

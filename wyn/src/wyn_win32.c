@@ -274,6 +274,23 @@ static void wyn_run_native(void)
 
 /**
  * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
+ */
+static void wyn_convert_text(wyn_window_t const window, const WCHAR* src_chr, const int src_len)
+{
+    char dst_chr[5];
+    const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr) - 1, NULL, NULL);
+    dst_chr[dst_len] = '\0';
+    
+    WYN_ASSERT((dst_len > 0) && (dst_len <= 4));
+
+    wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
  * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-app
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
@@ -485,67 +502,56 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         {
             // { [0] = High, [1] = Low }
             static WCHAR surrogates[2] = { 0, 0 };
+            static HWND surrogate_hwnd = 0;
+
+            // ----------------------------------------------------------------
+
+            if ((surrogate_hwnd != 0) && (surrogate_hwnd != hwnd))
+            {
+                surrogates[0] = 0;
+                surrogates[1] = 0;
+                surrogate_hwnd = 0;
+            }
 
             // ----------------------------------------------------------------
 
             if (IS_HIGH_SURROGATE(wparam))
             {
                 surrogates[0] = (WCHAR)wparam;
+                surrogate_hwnd = hwnd;
             }
             else if (IS_LOW_SURROGATE(wparam))
             {
                 surrogates[1] = (WCHAR)wparam;
+                surrogate_hwnd = hwnd;
             }
             else
             {
                 surrogates[0] = 0;
                 surrogates[1] = 0;
+                surrogate_hwnd = 0;
             }
 
             // ----------------------------------------------------------------
-
-            WCHAR src_chr[2];
-            int src_len;
 
             if (surrogates[0] || surrogates[1])
             {
                 if (IS_SURROGATE_PAIR(surrogates[0], surrogates[1]))
                 {
-                    src_chr[0] = surrogates[0];
-                    src_chr[1] = surrogates[1];
-                    src_len = 2;
-                }
-                else
-                {
-                    src_len = 0;
+                    wyn_convert_text(window, surrogates, 2);
                 }
 
                 if (surrogates[0] && surrogates[1])
                 {
                     surrogates[0] = 0;
                     surrogates[1] = 0;
+                    surrogate_hwnd = 0;
                 }
             }
             else
             {
-                src_chr[0] = (WCHAR)wparam;
-                src_len = 1;
-            }
-
-            // ----------------------------------------------------------------
-
-            if (src_len > 0)
-            {
-                // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
-                char dst_chr[5] = {};
-                const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr) - 1, NULL, NULL);
-
-                // if (umsg == WM_CHAR       ) WYN_LOG("[WYN] WM_CHAR        : [%d] \"%.4s\"\n", dst_len, dst_chr);
-                // if (umsg == WM_SYSCHAR    ) WYN_LOG("[WYN] WM_SYSCHAR     : [%d] \"%.4s\"\n", dst_len, dst_chr);
-                // if (umsg == WM_DEADCHAR   ) WYN_LOG("[WYN] WM_DEADCHAR    : [%d] \"%.4s\"\n", dst_len, dst_chr);
-                // if (umsg == WM_SYSDEADCHAR) WYN_LOG("[WYN] WM_SYSDEADCHAR : [%d] \"%.4s\"\n", dst_len, dst_chr);
-                
-                wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
+                const WCHAR character = (WCHAR)wparam;
+                wyn_convert_text(window, &character, 1);
             }
 
             // ----------------------------------------------------------------
