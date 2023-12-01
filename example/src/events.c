@@ -91,10 +91,10 @@ extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_c
 
 }
 
-extern void wyn_on_scroll(void* const userdata, wyn_window_t const window, int const dx, int const dy)
+extern void wyn_on_scroll(void* const userdata, wyn_window_t const window, double const dx, double const dy)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") {%p} SCROLL | [%d , %d]\n", ++self->num_events, (void*)window, (int)dx, (int)dy);
+    LOG("[EVENTS] (%"PRIu64") {%p} SCROLL | [%f , %f]\n", ++self->num_events, (void*)window, (double)dx, (double)dy);
     if (window != self->window) return;
 
 }
@@ -115,10 +115,10 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
 
 }
 
-extern void wyn_on_character(void* const userdata, wyn_window_t const window, wyn_utf8_t const code)
+extern void wyn_on_text(void* const userdata, wyn_window_t const window, const wyn_utf8_t* const text)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") {%p} CHARACTER | %3d '%c'\n", ++self->num_events, (void*)window, (int)code, (char)code);
+    LOG("[EVENTS] (%"PRIu64") {%p} TEXT | \"%s\"\n", ++self->num_events, (void*)window, (const char*)text);
     if (window != self->window) return;
 
 }

@@ -259,10 +259,10 @@ extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, w
  * @brief Called when a Scroll input occurs on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] dx       The horizontal scroll delta.
- * @param[in] dy       The vertical scroll delta.
+ * @param[in] dx       The normalized horizontal scroll delta.
+ * @param[in] dy       The normalized vertical scroll delta.
  */
-extern void wyn_on_scroll(void* userdata, wyn_window_t window, int dx, int dy);
+extern void wyn_on_scroll(void* userdata, wyn_window_t window, double dx, double dy);
 
 /**
  * @brief Called when a Mouse Button is pressed/released on a Window.
@@ -285,13 +285,13 @@ extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t butto
 extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, bool pressed);
 
 /**
- * @brief Called when a Character is input on a Window.
+ * @brief Called when a Text is input on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] code     The UTF-8 code unit corresponding to the character.
+ * @param[in] text     [non-null] The UTF-8 encoded text.
  * @note Some characters consist of multiple code units.
  */
-extern void wyn_on_character(void* userdata, wyn_window_t window, wyn_utf8_t code);
+extern void wyn_on_text(void* userdata, wyn_window_t window, const wyn_utf8_t* text);
 
 #ifdef __cplusplus
 }

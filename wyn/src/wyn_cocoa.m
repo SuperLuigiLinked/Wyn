@@ -39,8 +39,10 @@
  * @see AppKit:
  * - https://developer.apple.com/documentation/appkit/nsapplicationdelegate?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindowdelegate?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsresponder?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsview?language=objc
  */
-@interface wyn_delegate_t : NSObject <NSApplicationDelegate, NSWindowDelegate>
+@interface wyn_delegate_t : NSView <NSApplicationDelegate, NSWindowDelegate>
 @end
 
 /**
@@ -100,6 +102,7 @@ static void wyn_run_native(void);
  * - https://developer.apple.com/documentation/objectivec/1418956-nsobject/1571951-autorelease?language=objc
  * @see AppKit:
  * - https://developer.apple.com/documentation/appkit/nsapplication/1428360-sharedapplication?language=objc
+ * - https://developer.apple.com/documentation/appkit/nsapplication/1428621-setactivationpolicy?language=objc
  * - https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
  */
 static bool wyn_reinit(void* userdata)
@@ -111,7 +114,7 @@ static bool wyn_reinit(void* userdata)
     };
     
     [NSApplication sharedApplication];
-    [NSApp activateIgnoringOtherApps:YES];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
     wyn_state.delegate = [[wyn_delegate_t new] autorelease];
     if (wyn_state.delegate == NULL) return false;
@@ -209,6 +212,137 @@ static void wyn_run_native(void)
     return FALSE;
 }
 
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsnotification/1414469-object?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419567-windowdidresize?language=objc
+ */
+- (void)windowDidResize:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_window_t const window = (wyn_window_t)ns_window;
+
+    const wyn_size_t size = wyn_window_size(window);
+    wyn_on_window_resize(wyn_state.userdata, window, size.w, size.h);
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1525114-mousemoved?language=objc
+- (void)mouseMoved:(NSEvent*)event
+{
+    NSWindow* const ns_window = [event window];
+    NSPoint const ns_point = [NSEvent mouseLocation];
+    NSRect const frame_rect = [ns_window frame];
+    NSRect const content_rect  = [ns_window contentRectForFrameRect:frame_rect];
+    if ([wyn_state.delegate mouse:ns_point inRect:content_rect])
+    {
+        NSPoint const sc_point = [ns_window convertPointFromScreen:ns_point];
+        NSPoint const px_point = [ns_window convertPointToBacking:sc_point];
+        wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)px_point.x, (wyn_coord_t)px_point.y);
+    }
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1527420-mousedragged?language=objc
+- (void)mouseDragged:(NSEvent*)event
+{
+    [self mouseMoved:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1529135-rightmousedragged?language=objc
+- (void)rightMouseDragged:(NSEvent*)event
+{
+    [self mouseMoved:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1529804-othermousedragged?language=objc
+- (void)otherMouseDragged:(NSEvent*)event
+{
+    [self mouseMoved:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1529306-mouseentered?language=objc
+- (void)mouseEntered:(NSEvent*)event
+{
+    // WYN_LOG("[WYN] mouseEntered\n");
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1527561-mouseexited?language=objc
+- (void)mouseExited:(NSEvent*)event
+{
+    // WYN_LOG("[WYN] mouseExited\n");
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1534192-scrollwheel?language=objc
+- (void)scrollWheel:(NSEvent*)event
+{
+    NSWindow* const ns_window = [event window];
+    CGFloat const dx = [event scrollingDeltaX];
+    CGFloat const dy = [event scrollingDeltaY];
+    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)ns_window, (double)dx, (double)dy);
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1524634-mousedown?language=objc
+- (void)mouseDown:(NSEvent*)event
+{
+    NSWindow* const ns_window = [event window];
+    NSInteger const ns_button = [event buttonNumber];
+    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, true);
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1524727-rightmousedown?language=objc
+- (void)rightMouseDown:(NSEvent*)event
+{
+    [self mouseDown:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1525719-othermousedown?language=objc
+- (void)otherMouseDown:(NSEvent*)event
+{
+    [self mouseDown:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1535349-mouseup?language=objc
+- (void)mouseUp:(NSEvent*)event
+{
+    NSWindow* const ns_window = [event window];
+    NSInteger const ns_button = [event buttonNumber];
+    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, false);
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1526309-rightmouseup?language=objc
+- (void)rightMouseUp:(NSEvent*)event
+{
+    [self mouseUp:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1531343-othermouseup?language=objc
+- (void)otherMouseUp:(NSEvent*)event
+{
+    [self mouseUp:event];
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1525805-keydown?language=objc
+- (void)keyDown:(NSEvent*)event
+{
+    NSWindow* const ns_window = [event window];
+
+    unsigned short keycode = [event keyCode];
+    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, true);
+
+    NSString* const ns_string = [event characters];
+    const char* const text = [ns_string UTF8String];
+    wyn_on_text(wyn_state.userdata, (wyn_window_t)ns_window, (const wyn_utf8_t*)text);
+}
+
+// https://developer.apple.com/documentation/appkit/nsresponder/1527436-keyup?language=objc
+- (void)keyUp:(NSEvent *)event
+{
+    NSWindow* const ns_window = [event window];
+
+    unsigned short keycode = [event keyCode];
+    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, false);
+}
+
 @end
 
 // ================================================================================================================================
@@ -300,6 +434,10 @@ extern void wyn_signal(void)
  * @see AppKit:
  * - https://developer.apple.com/documentation/appkit/nswindow/1419477-initwithcontentrect?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419060-delegate?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419160-contentview?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419340-acceptsmousemovedevents?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419479-initialfirstresponder?language=objc
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419366-makefirstresponder?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419090-center?language=objc
  */
 extern wyn_window_t wyn_window_open(void)
@@ -310,6 +448,12 @@ extern wyn_window_t wyn_window_open(void)
     if (ns_window)
     {
         [ns_window setDelegate:wyn_state.delegate];
+        [ns_window setContentView:wyn_state.delegate];
+        [ns_window setAcceptsMouseMovedEvents:YES];
+        [ns_window setInitialFirstResponder:wyn_state.delegate];
+        const BOOL res = [ns_window makeFirstResponder:wyn_state.delegate];
+        WYN_ASSERT(res == YES);
+
         [ns_window center];
     }
     return (wyn_window_t)ns_window;
@@ -394,6 +538,24 @@ extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
     const NSRect backing = { .size = { .width = (CGFloat)(size.w), .height = (CGFloat)(size.h) } };
     const NSRect content = [ns_window convertRectFromBacking:backing];
     [ns_window setContentSize:content.size];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsstring/1412128-initwithutf8string?language=objc
+ * - https://developer.apple.com/documentation/foundation/nsstring/1497312-string?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindow/1419404-title?language=objc
+ */
+extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* const title)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    NSString* const ns_string = (title ? [NSString stringWithUTF8String:(const char*)title] : [NSString string]);
+    WYN_ASSERT(ns_string != nil);
+
+    [ns_window setTitle:ns_string];
 }
 
 // ================================================================================================================================

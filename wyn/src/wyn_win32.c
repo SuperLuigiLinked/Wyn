@@ -372,8 +372,9 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // |delta| == WHEEL_DELTA
-            wyn_on_scroll(wyn_state.userdata, window, 0, delta);
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
+            const double norm = (double)delta / (double)WHEEL_DELTA;
+            wyn_on_scroll(wyn_state.userdata, window, 0.0, norm);
             return 0;
         }
 
@@ -383,8 +384,9 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam); // |delta| == WHEEL_DELTA
-            wyn_on_scroll(wyn_state.userdata, window, delta, 0);
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
+            const double norm = (double)delta / (double)WHEEL_DELTA;
+            wyn_on_scroll(wyn_state.userdata, window, norm, 0.0);
             return 0;
         }
 
@@ -535,18 +537,15 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             if (src_len > 0)
             {
                 // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
-                char dst_chr[4];
-                const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr), NULL, NULL);
+                char dst_chr[5] = {};
+                const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr) - 1, NULL, NULL);
 
                 // if (umsg == WM_CHAR       ) WYN_LOG("[WYN] WM_CHAR        : [%d] \"%.4s\"\n", dst_len, dst_chr);
                 // if (umsg == WM_SYSCHAR    ) WYN_LOG("[WYN] WM_SYSCHAR     : [%d] \"%.4s\"\n", dst_len, dst_chr);
                 // if (umsg == WM_DEADCHAR   ) WYN_LOG("[WYN] WM_DEADCHAR    : [%d] \"%.4s\"\n", dst_len, dst_chr);
                 // if (umsg == WM_SYSDEADCHAR) WYN_LOG("[WYN] WM_SYSDEADCHAR : [%d] \"%.4s\"\n", dst_len, dst_chr);
                 
-                for (int i = 0; i < dst_len; ++i)
-                {
-                    wyn_on_character(wyn_state.userdata, window, (wyn_utf8_t)dst_chr[i]);
-                }
+                wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
             }
 
             // ----------------------------------------------------------------
