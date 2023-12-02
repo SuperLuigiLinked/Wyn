@@ -32,17 +32,20 @@
     #include <xcb/xcb.h>
 #endif
 
+
 // ================================================================================================================================
 //  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man3/abort.3.html
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man3/abort.3.html
  */
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
 /**
- * @see https://en.cppreference.com/w/c/io/fprintf
+ * @see C:
+ * - https://en.cppreference.com/w/c/io/fprintf
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
@@ -234,8 +237,10 @@ static bool wyn_reinit(void* userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man2/close.2.html
- * @see https://www.x.org/releases/current/doc/man/man3/XOpenDisplay.3.xhtml
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/close.2.html
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XOpenDisplay.3.xhtml
  */
 static void wyn_deinit(void)
 {
@@ -257,8 +262,10 @@ static void wyn_deinit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man2/poll.2.html
- * @see https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/poll.2.html
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml
  */
 static void wyn_run_native(void)
 {
@@ -305,9 +312,6 @@ static void wyn_run_native(void)
  * - https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml
  * - https://www.x.org/releases/current/doc/man/man3/XNextEvent.3.xhtml
  * - https://www.x.org/releases/current/doc/man/man3/XAnyEvent.3.xhtml
- * - https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
- * - https://tronche.com/gui/x/icccm/sec-4.html#WM_PROTOCOLS
- * - https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
  */
 static void wyn_dispatch_x11(bool const sync)
 {
@@ -327,10 +331,12 @@ static void wyn_dispatch_x11(bool const sync)
 
         switch (event.type)
         {
+            // https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
             case ClientMessage:
             {
                 const XClientMessageEvent* const xevt = &event.xclient;
 
+                // https://tronche.com/gui/x/icccm/sec-4.html#WM_PROTOCOLS
                 if (xevt->message_type == wyn_state.atoms[wyn_atom_WM_PROTOCOLS])
                 {
                     WYN_ASSERT(xevt->format == 32);
@@ -353,14 +359,132 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
             case Expose:
             {
-                WYN_EVT_LOG("* Expose\n");
-
                 const XExposeEvent* const xevt = &event.xexpose;
-
                 wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)xevt->window);
+                break;
+            }
+
+            case ConfigureNotify:
+            {
+                const XConfigureEvent* const xevt = &event.xconfigure;
+                wyn_on_window_resize(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)xevt->width, (wyn_coord_t)xevt->height);
+                break;
+            }
+
+            case MotionNotify:
+            {
+                const XPointerMovedEvent* const xevt = &event.xmotion;
+                wyn_on_cursor(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)xevt->x, (wyn_coord_t)xevt->y);
+                break;
+            }
+            
+            case EnterNotify:
+            {
+                const XEnterWindowEvent* const xevt = &event.xcrossing;
+                (void)xevt;
+                break;
+            }
+            
+            case LeaveNotify:
+            {
+                const XLeaveWindowEvent* const xevt = &event.xcrossing;
+                (void)xevt;
+                break;
+            }
+
+            case ButtonPress:
+            {
+                const XButtonPressedEvent* const xevt = &event.xbutton;
                 
+                switch (xevt->button)
+                {
+                case 4:
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  0.0,  1.0);
+                    break;
+                case 5:
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  0.0, -1.0);
+                    break;
+                case 6:
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, -1.0,  0.0);
+                    break;
+                case 7:
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  1.0,  0.0);
+                    break;
+                default:
+                    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_button_t)xevt->button, true);
+                    break;
+                }
+
+                break;
+            }
+
+            case ButtonRelease:
+            {
+                const XButtonReleasedEvent* const xevt = &event.xbutton;
+                
+                switch (xevt->button)
+                {
+                case 4:
+                    break;
+                case 5:
+                    break;
+                case 6:
+                    break;
+                case 7:
+                    break;
+                default:
+                    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_button_t)xevt->button, true);
+                    break;
+                }
+
+                break;
+            }
+
+            case KeyPress:
+            {
+                const XKeyPressedEvent* const xevt = &event.xkey;
+                wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_keycode_t)xevt->keycode, true);
+
+                {
+                    // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
+                    const XIM xim = XOpenIM(wyn_state.xlib_display, NULL, NULL, NULL);
+                    WYN_ASSERT(xim != NULL);
+                    {
+                        // https://www.x.org/releases/X11R7.5/doc/man/man3/XIMOfIC.3.html
+                        const XIC xic = XCreateIC(xim,
+                            XNClientWindow, xevt->window,
+                            XNFocusWindow,  xevt->window,
+                            XNInputStyle,   XIMPreeditNothing  | XIMStatusNothing,
+                            (void*)NULL
+                        );
+                        WYN_ASSERT(xic != NULL);
+                        {
+                            // https://linux.die.net/man/3/xutf8lookupstring
+                            KeySym keysym = 0;
+                            Status status = 0;
+                            char buffer[5] = {};
+                            const int res = Xutf8LookupString(xic, &event.xkey, buffer, sizeof(buffer) - 1, &keysym, &status);
+                            WYN_LOG("[WYN] <%d> (%ld) [%d] \"%.4s\"\n", (int)status, (long)keysym, (int)res, (const char*)buffer);
+
+                            if (res > 0)
+                                wyn_on_text(wyn_state.userdata, (wyn_window_t)xevt->window, (const wyn_utf8_t*)buffer);
+                        }
+                        XDestroyIC(xic);
+                    }
+                    const int res = XCloseIM(xim);
+                    (void)res;
+                }
+
+                break;
+            }
+
+            case KeyRelease:
+            {
+                const XKeyReleasedEvent* const xevt = &event.xkey;
+                wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_keycode_t)xevt->keycode, false);
                 break;
             }
         }
@@ -430,7 +554,8 @@ static const char* wyn_xevent_name(const int type)
 #if defined(WYN_XLIB)
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
 static int wyn_xlib_error_handler(Display* const display [[maybe_unused]], XErrorEvent* const error)
 {
@@ -441,7 +566,8 @@ static int wyn_xlib_error_handler(Display* const display [[maybe_unused]], XErro
 }
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
 static int wyn_xlib_io_error_handler(Display* const display [[maybe_unused]])
 {
@@ -450,7 +576,8 @@ static int wyn_xlib_io_error_handler(Display* const display [[maybe_unused]])
 }
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml
  */
 static void wyn_xlib_io_error_exit_handler(Display* const display [[maybe_unused]], void* const userdata [[maybe_unused]])
 {
@@ -478,7 +605,8 @@ extern void wyn_run(void* const userdata)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_store
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_store
  */
 extern void wyn_quit(void)
 {
@@ -488,7 +616,8 @@ extern void wyn_quit(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://en.cppreference.com/w/c/atomic/atomic_load
+ * @see C:
+ * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
 extern bool wyn_quitting(void)
 {
@@ -498,7 +627,8 @@ extern bool wyn_quitting(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man2/gettid.2.html
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/gettid.2.html
  */
 extern bool wyn_is_this_thread(void)
 {
@@ -508,7 +638,8 @@ extern bool wyn_is_this_thread(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://man7.org/linux/man-pages/man2/write.2.html
+ * @see Linux:
+ * - https://man7.org/linux/man-pages/man2/write.2.html
  */
 extern void wyn_signal(void)
 {
@@ -520,11 +651,12 @@ extern void wyn_signal(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/AllPlanes.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XCreateWindow.3.xhtml
- * @see https://www.x.org/releases/current/doc/libX11/libX11/libX11.html#Event_Masks
- * @see https://www.x.org/releases/current/doc/man/man3/XInternAtom.3.xhtml
- * @see https://www.x.org/releases/current/doc/man/man3/XSetWMProtocols.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/libX11/libX11/libX11.html#Event_Masks
+ * - https://www.x.org/releases/current/doc/man/man3/AllPlanes.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XCreateWindow.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XInternAtom.3.xhtml
+ * - https://www.x.org/releases/current/doc/man/man3/XSetWMProtocols.3.xhtml
  */
 extern wyn_window_t wyn_window_open(void)
 {
@@ -536,22 +668,24 @@ extern wyn_window_t wyn_window_open(void)
     const unsigned long mask = CWEventMask;
     XSetWindowAttributes attr = {
         .event_mask = NoEventMask
-            | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | EnterWindowMask | LeaveWindowMask
-            | PointerMotionMask | PointerMotionHintMask | Button1MotionMask | Button2MotionMask | Button3MotionMask | Button4MotionMask | Button5MotionMask | ButtonMotionMask
+            | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask
+            | EnterWindowMask | LeaveWindowMask
+            // | PointerMotionHintMask
+            | PointerMotionMask | Button1MotionMask | Button2MotionMask | Button3MotionMask | Button4MotionMask | Button5MotionMask | ButtonMotionMask
             | KeymapStateMask
             | ExposureMask
             | VisibilityChangeMask
             | StructureNotifyMask
-            //| ResizeRedirectMask
+            // | ResizeRedirectMask
             | SubstructureNotifyMask
-            //| SubstructureRedirectMask
+            // | SubstructureRedirectMask
             | FocusChangeMask
             | PropertyChangeMask
             | ColormapChangeMask
             | OwnerGrabButtonMask
     };
 
-    const Window xWnd = XCreateWindow(
+    const Window x11_window = XCreateWindow(
         wyn_state.xlib_display, root,
         0, 0, 640, 480,
         0, CopyFromParent, InputOutput, CopyFromParent,
@@ -561,7 +695,7 @@ extern wyn_window_t wyn_window_open(void)
     #error "Unimplemented"
 #endif
 
-    if (xWnd != 0)
+    if (x11_window != 0)
     {
     #if defined(WYN_XLIB)
         #pragma GCC diagnostic push
@@ -570,7 +704,7 @@ extern wyn_window_t wyn_window_open(void)
         #pragma GCC diagnostic pop
         WYN_ASSERT(res_atoms != 0);
 
-        const Status res_proto = XSetWMProtocols(wyn_state.xlib_display, xWnd, wyn_state.atoms, wyn_atom_len);
+        const Status res_proto = XSetWMProtocols(wyn_state.xlib_display, x11_window, wyn_state.atoms, wyn_atom_len);
         WYN_ASSERT(res_proto != 0);
     #elif defined(WYN_X11) || defined(WYN_XCB)
         for (size_t idx = 0; idx < wyn_atom_len; ++idx)
@@ -595,19 +729,20 @@ extern wyn_window_t wyn_window_open(void)
     #endif
     }
 
-    return (wyn_window_t)xWnd;
+    return (wyn_window_t)x11_window;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml
  */
 extern void wyn_window_close(wyn_window_t const window)
 {
 #if defined(WYN_XLIB)
-    const Window xWnd = (Window)window;
-    [[maybe_unused]] const int res = XDestroyWindow(wyn_state.xlib_display, xWnd);
+    const Window x11_window = (Window)window;
+    [[maybe_unused]] const int res = XDestroyWindow(wyn_state.xlib_display, x11_window);
 #elif defined(WYN_X11) || defined(WYN_XCB)
     #error "Unimplemented"
 #endif
@@ -616,13 +751,14 @@ extern void wyn_window_close(wyn_window_t const window)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XMapWindow.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XMapWindow.3.xhtml
  */
 extern void wyn_window_show(wyn_window_t const window)
 {
 #if defined(WYN_XLIB)
-    const Window xWnd = (Window)window;
-    [[maybe_unused]] const int res = XMapRaised(wyn_state.xlib_display, xWnd);
+    const Window x11_window = (Window)window;
+    [[maybe_unused]] const int res = XMapRaised(wyn_state.xlib_display, x11_window);
     wyn_dispatch_x11(true);
 #elif defined(WYN_X11) || defined(WYN_XCB)
     #error "Unimplemented"
@@ -632,13 +768,14 @@ extern void wyn_window_show(wyn_window_t const window)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @see https://www.x.org/releases/current/doc/man/man3/XUnmapWindow.3.xhtml
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XUnmapWindow.3.xhtml
  */
 extern void wyn_window_hide(wyn_window_t const window)
 {
 #if defined(WYN_XLIB)
-    const Window xWnd = (Window)window;
-    [[maybe_unused]] const int res = XUnmapWindow(wyn_state.xlib_display, xWnd);
+    const Window x11_window = (Window)window;
+    [[maybe_unused]] const int res = XUnmapWindow(wyn_state.xlib_display, x11_window);
     wyn_dispatch_x11(true);
 #elif defined(WYN_X11) || defined(WYN_XCB)
     #error "Unimplemented"
@@ -662,10 +799,10 @@ extern double wyn_window_scale(wyn_window_t const window)
 extern wyn_size_t wyn_window_size(wyn_window_t const window)
 {
 #if defined(WYN_XLIB)
-    const Window xWnd = (Window)window;
+    const Window x11_window = (Window)window;
     
     XWindowAttributes attr;
-    const Status res = XGetWindowAttributes(wyn_state.xlib_display, xWnd, &attr);
+    const Status res = XGetWindowAttributes(wyn_state.xlib_display, x11_window, &attr);
     WYN_ASSERT(res != 0);
     
     return (wyn_size_t){ .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) };
@@ -683,12 +820,27 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
 extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
 {
 #if defined(WYN_XLIB)
-    const Window xWnd = (Window)window;
+    const Window x11_window = (Window)window;
     const wyn_coord_t rounded_w = ceil(size.w);
     const wyn_coord_t rounded_h = ceil(size.h);
 
-    [[maybe_unused]] const int res = XResizeWindow(wyn_state.xlib_display, xWnd, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    [[maybe_unused]] const int res = XResizeWindow(wyn_state.xlib_display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
     wyn_dispatch_x11(true);
+#else
+    #error "Unimplemented"
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml
+ */
+extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* const title)
+{
+#if defined(WYN_XLIB)
+    [[maybe_unused]] const int res = XStoreName(wyn_state.xlib_display, (Window)window, (title ? (const char*)title : ""));
 #else
     #error "Unimplemented"
 #endif
