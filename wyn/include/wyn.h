@@ -18,18 +18,14 @@
 #define WYN_H
 
 // ================================================================================================================================
-//  Macros
-// --------------------------------------------------------------------------------------------------------------------------------
-
-#if defined(__cplusplus)    // C++
-    #define WYN_BOOL bool
-#else                       // C
-    #define WYN_BOOL _Bool
-#endif
-
-// ================================================================================================================================
 //  Type Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
+
+#if defined(__cplusplus)
+    typedef bool wyn_bool_t;
+#else
+    typedef _Bool wyn_bool_t;
+#endif
 
 /**
  * @brief Handle to a Window.
@@ -37,7 +33,7 @@
 typedef void* wyn_window_t;
 
 /**
- * @brief Unit for a coordinate/extent.
+ * @brief Floating-point type for coordinates/extents/deltas.
  */
 typedef double wyn_coord_t;
 
@@ -48,15 +44,15 @@ struct wyn_point_t { wyn_coord_t x, y; };
 typedef struct wyn_point_t wyn_point_t;
 
 /**
- * @brief A 2D Size.
+ * @brief A 2D Extent.
  */
-struct wyn_size_t { wyn_coord_t w, h; };
-typedef struct wyn_size_t wyn_size_t;
+struct wyn_extent_t { wyn_coord_t w, h; };
+typedef struct wyn_extent_t wyn_extent_t;
 
 /**
  * @brief A 2D Rectangle.
  */
-struct wyn_rect_t { wyn_point_t origin; wyn_size_t size; };
+struct wyn_rect_t { wyn_point_t origin; wyn_extent_t extent; };
 typedef struct wyn_rect_t wyn_rect_t;
 
 /**
@@ -101,14 +97,14 @@ extern void wyn_quit(void);
  * @return `true` if stopping, `false` otherwise.
  * @note This function may be called from any thread.
  */
-extern WYN_BOOL wyn_quitting(void);
+extern wyn_bool_t wyn_quitting(void);
 
 /**
  * @brief Queries whether or not the Event Loop is on the calling thread.
  * @return `true` if this thread is the Event Thread, `false` otherwise.
  * @note This function may be called from any thread.
  */
-extern WYN_BOOL wyn_is_this_thread(void);
+extern wyn_bool_t wyn_is_this_thread(void);
 
 /**
  * @brief Wakes up the Event Thread and calls the `wyn_on_signal` user-callback.
@@ -149,21 +145,38 @@ extern void wyn_window_hide(wyn_window_t window);
  * @return The scale to convert from Screen Coordinates to Pixel Coordinates.
  * @note On most platforms, this value is always `1.0`. Some platforms (e.g. MacOS) may return other values, like `2.0`.
  */
-extern double wyn_window_scale(wyn_window_t window);
+extern wyn_coord_t wyn_window_scale(wyn_window_t window);
 
 /**
  * @brief Queries the size of a Window.
  * @param[in] window [non-null] A handle to the Window.
  * @return The size of the Window's framebuffer, in Pixels.
  */
-extern wyn_size_t wyn_window_size(wyn_window_t window);
+extern wyn_extent_t wyn_window_size(wyn_window_t window);
 
 /**
  * @brief Resizes a Window.
  * @param[in] window [non-null] A handle to the Window.
- * @param size The new size of the Window's framebuffer, in Pixels.
+ * @param extent The new size of the Window's framebuffer, in Pixels.
  */
-extern void wyn_window_resize(wyn_window_t window, wyn_size_t size);
+extern void wyn_window_resize(wyn_window_t window, wyn_extent_t extent);
+
+
+/**
+ * @brief Queries the Position of a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @return The content rectangle for the Window, in Screen Coordinates.
+ */
+extern wyn_rect_t wyn_window_position(wyn_window_t window);
+
+/**
+ * @brief Queries the Position of a Window.
+ * @param[in] window [non-null] A handle to the Window.
+ * @param[in] origin [nullable] The content origin, in Screen Coordinates.
+ * @param[in] extent [nullable] The content extent, in Screen Coordinates.
+ * @note If the origin/extent is NULL, the previous origin/extent is kept.
+ */
+extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent);
 
 /**
  * @brief Sets the title of a Window.
@@ -241,10 +254,10 @@ extern void wyn_on_window_redraw(void* userdata, wyn_window_t window);
  * @brief Called when a Window is resized.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window that was resized.
- * @param[in] pw       The new Width of the Window's content rectangle, in Screen Coordinates.
- * @param[in] ph       The new Height of the Window's content rectangle, in Screen Coordinates.
+ * @param[in] content  The new content rectangle, in Screen Coordinates.
+ * @param[in] scale    The new scale.
  */
-extern void wyn_on_window_resize(void* userdata, wyn_window_t window, wyn_coord_t pw, wyn_coord_t ph);
+extern void wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale);
 
 /**
  * @brief Called when a Cursor is moved across a Window.
@@ -262,7 +275,7 @@ extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, w
  * @param[in] dx       The normalized horizontal scroll delta.
  * @param[in] dy       The normalized vertical scroll delta.
  */
-extern void wyn_on_scroll(void* userdata, wyn_window_t window, double dx, double dy);
+extern void wyn_on_scroll(void* userdata, wyn_window_t window, wyn_coord_t dx, wyn_coord_t dy);
 
 /**
  * @brief Called when a Mouse Button is pressed/released on a Window.
@@ -272,7 +285,7 @@ extern void wyn_on_scroll(void* userdata, wyn_window_t window, double dx, double
  * @param[in] pressed  `true` if the button was pressed, `false` if the button was released.
  * @note Different platforms use different Virtual Codes to represent different Mouse Buttons.
  */
-extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t button, bool pressed);
+extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t button, wyn_bool_t pressed);
 
 /**
  * @brief Called when a Key is pressed/released on a Window.
@@ -282,7 +295,7 @@ extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t butto
  * @param[in] pressed  `true` if the key was pressed, `false` if the key was released.
  * @note Different platforms use different Virtual Codes to represent different Keys.
  */
-extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, bool pressed);
+extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, wyn_bool_t pressed);
 
 /**
  * @brief Called when a Text is input on a Window.

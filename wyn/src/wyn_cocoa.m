@@ -228,9 +228,33 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [notification object];
     wyn_window_t const window = (wyn_window_t)ns_window;
+    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
+}
 
-    const wyn_size_t size = wyn_window_size(window);
-    wyn_on_window_resize(wyn_state.userdata, window, size.w, size.h);
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsnotification/1414469-object?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419674-windowdidmove?language=objc
+ */
+- (void)windowDidMove:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_window_t const window = (wyn_window_t)ns_window;
+    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
+}
+
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsnotification/1414469-object?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419517-windowdidchangebackingproperties?language=objc
+ */
+- (void)windowDidChangeBackingProperties:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_window_t const window = (wyn_window_t)ns_window;
+    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1525114-mousemoved?language=objc
@@ -284,7 +308,7 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
     CGFloat const dx = [event scrollingDeltaX];
     CGFloat const dy = [event scrollingDeltaY];
-    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)ns_window, (double)dx, (double)dy);
+    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)dx, (wyn_coord_t)dy);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1524634-mousedown?language=objc
@@ -292,7 +316,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [event window];
     NSInteger const ns_button = [event buttonNumber];
-    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, true);
+    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)true);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1524727-rightmousedown?language=objc
@@ -312,7 +336,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [event window];
     NSInteger const ns_button = [event buttonNumber];
-    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, false);
+    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)false);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1526309-rightmouseup?language=objc
@@ -333,7 +357,7 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
 
     unsigned short keycode = [event keyCode];
-    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, true);
+    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)true);
 
     NSString* const ns_string = [event characters];
     const char* const text = [ns_string UTF8String];
@@ -346,7 +370,7 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
 
     unsigned short keycode = [event keyCode];
-    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, false);
+    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)false);
 }
 
 @end
@@ -402,9 +426,9 @@ extern void wyn_quit(void)
  * @see C:
  * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
-extern bool wyn_quitting(void)
+extern wyn_bool_t wyn_quitting(void)
 {
-    return atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return (wyn_bool_t)atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -413,9 +437,9 @@ extern bool wyn_quitting(void)
  * @see Foundation:
  * - https://developer.apple.com/documentation/foundation/nsthread/1412704-ismainthread?language=objc
  */
-extern bool wyn_is_this_thread(void)
+extern wyn_bool_t wyn_is_this_thread(void)
 {
-    return [NSThread isMainThread];
+    return (wyn_bool_t)[NSThread isMainThread];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -507,11 +531,11 @@ extern void wyn_window_hide(wyn_window_t const window)
  * @see AppKit:
  * - https://developer.apple.com/documentation/appkit/nswindow/1419459-backingscalefactor?language=objc
  */
-extern double wyn_window_scale(wyn_window_t const window)
+extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     NSWindow* const ns_window = (NSWindow*)window;
     const CGFloat scale = [ns_window backingScaleFactor];
-    return (double)scale;
+    return (wyn_coord_t)scale;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -522,13 +546,13 @@ extern double wyn_window_scale(wyn_window_t const window)
  * - https://developer.apple.com/documentation/appkit/nswindow/1419108-contentrectforframerect?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419260-convertrecttobacking?language=objc
  */
-extern wyn_size_t wyn_window_size(wyn_window_t const window)
+extern wyn_extent_t wyn_window_size(wyn_window_t const window)
 {
     NSWindow* const ns_window = (NSWindow*)window;
     const NSRect frame = [ns_window frame];
     const NSRect content = [ns_window contentRectForFrameRect:frame];
     const NSRect backing = [ns_window convertRectToBacking:content];
-    return (wyn_size_t){ .w = (wyn_coord_t)(backing.size.width), .h = (wyn_coord_t)(backing.size.height) };
+    return (wyn_extent_t){ .w = (wyn_coord_t)(backing.size.width), .h = (wyn_coord_t)(backing.size.height) };
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -538,12 +562,42 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
  * - https://developer.apple.com/documentation/appkit/nswindow/1419273-convertrectfrombacking?language=objc
  * - https://developer.apple.com/documentation/appkit/nswindow/1419100-setcontentsize?language=objc
  */
-extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+extern void wyn_window_resize(wyn_window_t const window, wyn_extent_t const extent)
 {
     NSWindow* const ns_window = (NSWindow*)window;
-    const NSRect backing = { .size = { .width = (CGFloat)(size.w), .height = (CGFloat)(size.h) } };
+    const NSRect backing = { .size = { .width = (CGFloat)(extent.w), .height = (CGFloat)(extent.h) } };
     const NSRect content = [ns_window convertRectFromBacking:backing];
     [ns_window setContentSize:content.size];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_rect_t wyn_window_position(wyn_window_t const window)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    NSRect const frame = [ns_window frame];
+    NSRect const content = [ns_window contentRectForFrameRect:frame];
+    
+    return (wyn_rect_t){
+        .origin = { .x = (wyn_coord_t)content.origin.x, .y = (wyn_coord_t)content.origin.y },
+        .extent = { .w = (wyn_coord_t)content.size.width, .h = (wyn_coord_t)content.size.height }
+    };
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+    NSRect const old_frame = [ns_window frame];
+    NSRect const old_content = [ns_window contentRectForFrameRect:old_frame];
+
+    NSPoint const new_origin = (origin) ? (NSPoint){ .x = (CGFloat)origin->x, .y = (CGFloat)origin->y } : old_content.origin;
+    NSSize const new_size = (extent) ? (NSSize){ .width = (CGFloat)extent->w, .height = (CGFloat)extent->h } : old_content.size;
+
+    const NSRect new_content = { .origin = new_origin, .size = new_size };
+    const NSRect new_frame = [ns_window frameRectForContentRect:new_content];
+    [ns_window setFrame:new_frame display:YES];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
