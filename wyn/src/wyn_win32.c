@@ -344,19 +344,10 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             break; //return 0;
         }
 
-        // // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
-        // case WM_WINDOWPOSCHANGED:
-        // {
-        //     const WINDOWPOS* const pos = (const WINDOWPOS*)lparam;
-        //     if (pos) wyn_on_window_resize(wyn_state.userdata, window, (wyn_coord_t)pos->cx, (wyn_coord_t)pos->cy);
-        //     return 0;
-        // }
-
-        case WM_SIZE:
+        // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
+        case WM_WINDOWPOSCHANGED:
         {
-            const WORD w = LOWORD(lparam);
-            const WORD h = HIWORD(lparam);
-            wyn_on_window_resize(wyn_state.userdata, window, (wyn_coord_t)w, (wyn_coord_t)h);
+            wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
             return 0;
         }
 
@@ -623,9 +614,9 @@ extern void wyn_quit(void)
  * @see C:
  * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
-extern bool wyn_quitting(void)
+extern wyn_bool_t wyn_quitting(void)
 {
-    return atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return (wyn_bool_t)atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -634,9 +625,9 @@ extern bool wyn_quitting(void)
  * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
  */
-extern bool wyn_is_this_thread(void)
+extern wyn_bool_t wyn_is_this_thread(void)
 {
-    return GetCurrentThreadId() == wyn_state.tid_main;
+    return (wyn_bool_t)(GetCurrentThreadId() == wyn_state.tid_main);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -706,10 +697,10 @@ extern void wyn_window_hide(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern double wyn_window_scale(wyn_window_t const window)
+extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     (void)window;
-    return 1.0;
+    return (wyn_coord_t)1.0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -718,7 +709,7 @@ extern double wyn_window_scale(wyn_window_t const window)
  * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
  */
-extern wyn_size_t wyn_window_size(wyn_window_t const window)
+extern wyn_extent_t wyn_window_size(wyn_window_t const window)
 {
     const HWND hwnd = (HWND)window;
 
@@ -726,7 +717,7 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
     const BOOL res = GetClientRect(hwnd, &rect);
     WYN_ASSERT(res != 0);
 
-    return (wyn_size_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
+    return (wyn_extent_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -738,11 +729,11 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
  */
-extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+extern void wyn_window_resize(wyn_window_t const window, wyn_extent_t const extent)
 {
     const HWND hwnd = (HWND)window;
-    const wyn_coord_t rounded_w = ceil(size.w);
-    const wyn_coord_t rounded_h = ceil(size.h);
+    const wyn_coord_t rounded_w = ceil(extent.w);
+    const wyn_coord_t rounded_h = ceil(extent.h);
 
     const UINT dpi = GetDpiForWindow(hwnd);
     const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
@@ -755,6 +746,64 @@ extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
     const BOOL res_set = SetWindowPos(
         hwnd, 0, 0, 0, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
         SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
+    );
+    WYN_ASSERT(res_set != 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-clienttoscreen
+ */
+extern wyn_rect_t wyn_window_position(wyn_window_t const window)
+{
+    const HWND hwnd = (HWND)window;
+
+    RECT rect;
+    const BOOL res_rect = GetClientRect(hwnd, &rect);
+    WYN_ASSERT(res_rect != 0);
+
+    POINT point = {};
+    const BOOL res_point = ClientToScreen(hwnd, &point);
+    WYN_ASSERT(res_point != 0);
+
+    return (wyn_rect_t){
+        .origin = { .x = (wyn_coord_t)point.x, .y = (wyn_coord_t)point.y },
+        .extent = { .w = (wyn_coord_t)rect.right, .h = (wyn_coord_t)rect.bottom }
+    };
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
+ */
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
+{
+    const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
+    const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
+    const wyn_coord_t rounded_w = extent ? ceil(extent->w) : 0.0;
+    const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
+
+    const HWND hwnd = (HWND)window;
+
+    const UINT dpi = GetDpiForWindow(hwnd);
+    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+    RECT rect = { .left = (LONG)rounded_x, .top = (LONG)rounded_y, .right = (LONG)(rounded_x + rounded_w), .bottom = (LONG)(rounded_y + rounded_h) };
+    const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
+    WYN_ASSERT(res_adj != 0);
+
+    const BOOL res_set = SetWindowPos(
+        hwnd, 0, (int)rect.left, (int)rect.top, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
+        (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
     );
     WYN_ASSERT(res_set != 0);
 }

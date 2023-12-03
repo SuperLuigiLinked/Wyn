@@ -406,16 +406,16 @@ static void wyn_dispatch_x11(bool const sync)
                 switch (xevt->button)
                 {
                 case 4:
-                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  0.0,  1.0);
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)0.0, (wyn_coord_t)1.0);
                     break;
                 case 5:
-                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  0.0, -1.0);
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)0.0, (wyn_coord_t)-1.0);
                     break;
                 case 6:
-                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, -1.0,  0.0);
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)-1.0, (wyn_coord_t)0.0);
                     break;
                 case 7:
-                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window,  1.0,  0.0);
+                    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)1.0, (wyn_coord_t)0.0);
                     break;
                 default:
                     wyn_on_mouse(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_button_t)xevt->button, true);
@@ -791,7 +791,7 @@ extern void wyn_window_hide(wyn_window_t const window)
 extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     (void)window;
-    return 1.0;
+    return (wyn_coord_t)1.0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
