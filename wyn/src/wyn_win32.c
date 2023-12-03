@@ -851,3 +851,129 @@ extern void* wyn_native_context(wyn_window_t const window)
 }
 
 // ================================================================================================================================
+
+/**
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+ */
+extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
+{
+    static const wyn_vb_mapping_t mapping = {
+        [wyn_vb_left]   = MK_LBUTTON, 
+        [wyn_vb_right]  = MK_RBUTTON,
+        [wyn_vb_middle] = MK_MBUTTON,
+    };
+    return &mapping;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Win32:
+ * - https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+ */
+extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
+{
+    static const wyn_vk_mapping_t mapping = {
+        [wyn_vk_0]              = '0',
+        [wyn_vk_1]              = '1',
+        [wyn_vk_2]              = '2',
+        [wyn_vk_3]              = '3',
+        [wyn_vk_4]              = '4',
+        [wyn_vk_5]              = '5',
+        [wyn_vk_6]              = '6',
+        [wyn_vk_7]              = '7',
+        [wyn_vk_8]              = '8',
+        [wyn_vk_9]              = '9',
+        [wyn_vk_A]              = 'A',
+        [wyn_vk_B]              = 'B',
+        [wyn_vk_C]              = 'C',
+        [wyn_vk_D]              = 'D',
+        [wyn_vk_E]              = 'E',
+        [wyn_vk_F]              = 'F',
+        [wyn_vk_G]              = 'G',
+        [wyn_vk_H]              = 'H',
+        [wyn_vk_I]              = 'I',
+        [wyn_vk_J]              = 'J',
+        [wyn_vk_K]              = 'K',
+        [wyn_vk_L]              = 'L',
+        [wyn_vk_M]              = 'M',
+        [wyn_vk_N]              = 'N',
+        [wyn_vk_O]              = 'O',
+        [wyn_vk_P]              = 'P',
+        [wyn_vk_Q]              = 'Q',
+        [wyn_vk_R]              = 'R',
+        [wyn_vk_S]              = 'S',
+        [wyn_vk_T]              = 'T',
+        [wyn_vk_U]              = 'U',
+        [wyn_vk_V]              = 'V',
+        [wyn_vk_W]              = 'W',
+        [wyn_vk_X]              = 'X',
+        [wyn_vk_Y]              = 'Y',
+        [wyn_vk_Z]              = 'Z',
+        [wyn_vk_Left]           = VK_LEFT,
+        [wyn_vk_Right]          = VK_RIGHT,
+        [wyn_vk_Up]             = VK_UP,
+        [wyn_vk_Down]           = VK_DOWN,
+        [wyn_vk_Period]         = VK_OEM_PERIOD,
+        [wyn_vk_Comma]          = VK_OEM_COMMA,
+        [wyn_vk_Semicolon]      = VK_OEM_1,
+        [wyn_vk_Quote]          = VK_OEM_7,
+        [wyn_vk_Slash]          = VK_OEM_2,
+        [wyn_vk_Backslash]      = VK_OEM_5,
+        [wyn_vk_BracketL]       = VK_OEM_4,
+        [wyn_vk_BracketR]       = VK_OEM_6,
+        [wyn_vk_Plus]           = VK_OEM_PLUS,
+        [wyn_vk_Minus]          = VK_OEM_MINUS,
+        [wyn_vk_Accent]         = VK_OEM_3,
+        [wyn_vk_Control]        = VK_CONTROL,
+        [wyn_vk_Start]          = VK_LWIN,
+        [wyn_vk_Alt]            = VK_MENU,
+        [wyn_vk_Space]          = VK_SPACE,
+        [wyn_vk_Backspace]      = VK_BACK,
+        [wyn_vk_Delete]         = VK_DELETE,
+        [wyn_vk_Insert]         = VK_INSERT,
+        [wyn_vk_Shift]          = VK_SHIFT,
+        [wyn_vk_CapsLock]       = VK_CAPITAL,
+        [wyn_vk_Tab]            = VK_TAB,
+        [wyn_vk_Enter]          = VK_RETURN,
+        [wyn_vk_Escape]         = VK_ESCAPE,
+        [wyn_vk_Home]           = VK_HOME,
+        [wyn_vk_End]            = VK_END,
+        [wyn_vk_PageUp]         = VK_PRIOR,
+        [wyn_vk_PageDown]       = VK_NEXT,
+        [wyn_vk_F1]             = VK_F1,
+        [wyn_vk_F2]             = VK_F2,
+        [wyn_vk_F3]             = VK_F3,
+        [wyn_vk_F4]             = VK_F4,
+        [wyn_vk_F5]             = VK_F5,
+        [wyn_vk_F6]             = VK_F6,
+        [wyn_vk_F7]             = VK_F7,
+        [wyn_vk_F8]             = VK_F8,
+        [wyn_vk_F9]             = VK_F9,
+        [wyn_vk_F10]            = VK_F10,
+        [wyn_vk_F11]            = VK_F11,
+        [wyn_vk_F12]            = VK_F12,
+        [wyn_vk_PrintScreen]    = VK_SNAPSHOT,
+        [wyn_vk_ScrollLock]     = VK_SCROLL,
+        [wyn_vk_NumLock]        = VK_NUMLOCK,
+        [wyn_vk_Numpad0]        = VK_NUMPAD0,
+        [wyn_vk_Numpad1]        = VK_NUMPAD0,
+        [wyn_vk_Numpad2]        = VK_NUMPAD0,
+        [wyn_vk_Numpad3]        = VK_NUMPAD0,
+        [wyn_vk_Numpad4]        = VK_NUMPAD0,
+        [wyn_vk_Numpad5]        = VK_NUMPAD0,
+        [wyn_vk_Numpad6]        = VK_NUMPAD0,
+        [wyn_vk_Numpad7]        = VK_NUMPAD0,
+        [wyn_vk_Numpad8]        = VK_NUMPAD0,
+        [wyn_vk_Numpad9]        = VK_NUMPAD0,
+        [wyn_vk_NumpadPlus]     = VK_ADD,
+        [wyn_vk_NumpadMinus]    = VK_SUBTRACT,
+        [wyn_vk_NumpadMultiply] = VK_MULTIPLY,
+        [wyn_vk_NumpadDivide]   = VK_DIVIDE,
+        [wyn_vk_NumpadPeriod]   = VK_DECIMAL,
+    };
+    return &mapping;
+}
+
+// ================================================================================================================================

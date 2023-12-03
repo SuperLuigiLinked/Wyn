@@ -17,6 +17,8 @@
 #ifndef WYN_H
 #define WYN_H
 
+#include <wvk.h>
+
 // ================================================================================================================================
 //  Type Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -57,16 +59,6 @@ typedef struct wyn_extent_t wyn_extent_t;
  */
 struct wyn_rect_t { wyn_point_t origin; wyn_extent_t extent; };
 typedef struct wyn_rect_t wyn_rect_t;
-
-/**
- * @brief A virtual code representing a button on a mouse.
- */
-typedef unsigned short wyn_button_t;
-
-/**
- * @brief A virtual code representing a key on a keyboard.
- */
-typedef unsigned short wyn_keycode_t;
 
 /**
  * @brief A character type capable of holding UTF-8 code units.
