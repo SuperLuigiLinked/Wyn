@@ -370,7 +370,11 @@ static void wyn_dispatch_x11(bool const sync)
             case ConfigureNotify:
             {
                 const XConfigureEvent* const xevt = &event.xconfigure;
-                wyn_on_window_resize(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_coord_t)xevt->width, (wyn_coord_t)xevt->height);
+                const wyn_rect_t content = {
+                    .origin = { .x = (wyn_coord_t)xevt->x, .y = (wyn_coord_t)xevt->y },
+                    .extent = { .w =(wyn_coord_t)xevt->width, .h = (wyn_coord_t)xevt->height }
+                };
+                wyn_on_window_reposition(wyn_state.userdata, (wyn_window_t)xevt->window, content, (wyn_coord_t)1.0);
                 break;
             }
 
@@ -619,9 +623,9 @@ extern void wyn_quit(void)
  * @see C:
  * - https://en.cppreference.com/w/c/atomic/atomic_load
  */
-extern bool wyn_quitting(void)
+extern wyn_bool_t wyn_quitting(void)
 {
-    return atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return (wyn_bool_t)atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -630,9 +634,9 @@ extern bool wyn_quitting(void)
  * @see Linux:
  * - https://man7.org/linux/man-pages/man2/gettid.2.html
  */
-extern bool wyn_is_this_thread(void)
+extern wyn_bool_t wyn_is_this_thread(void)
 {
-    return gettid() == wyn_state.tid_main;
+    return (wyn_bool_t)(gettid() == wyn_state.tid_main);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -784,7 +788,7 @@ extern void wyn_window_hide(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern double wyn_window_scale(wyn_window_t const window)
+extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     (void)window;
     return 1.0;
@@ -796,7 +800,7 @@ extern double wyn_window_scale(wyn_window_t const window)
  * @see Xlib:
  * - https://www.x.org/releases/current/doc/man/man3/XGetWindowAttributes.3.xhtml
  */
-extern wyn_size_t wyn_window_size(wyn_window_t const window)
+extern wyn_extent_t wyn_window_size(wyn_window_t const window)
 {
 #if defined(WYN_XLIB)
     const Window x11_window = (Window)window;
@@ -805,7 +809,7 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
     const Status res = XGetWindowAttributes(wyn_state.xlib_display, x11_window, &attr);
     WYN_ASSERT(res != 0);
     
-    return (wyn_size_t){ .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) };
+    return (wyn_extent_t){ .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) };
 #else
     #error "Unimplemented"
 #endif
@@ -817,7 +821,7 @@ extern wyn_size_t wyn_window_size(wyn_window_t const window)
  * @see Xlib:
  * - https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml
  */
-extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
+extern void wyn_window_resize(wyn_window_t const window, wyn_extent_t const size)
 {
 #if defined(WYN_XLIB)
     const Window x11_window = (Window)window;
@@ -825,6 +829,65 @@ extern void wyn_window_resize(wyn_window_t const window, wyn_size_t const size)
     const wyn_coord_t rounded_h = ceil(size.h);
 
     [[maybe_unused]] const int res = XResizeWindow(wyn_state.xlib_display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    wyn_dispatch_x11(true);
+#else
+    #error "Unimplemented"
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XGetWindowAttributes.3.xhtml
+ */
+extern wyn_rect_t wyn_window_position(wyn_window_t const window)
+{
+#if defined(WYN_XLIB)
+    const Window x11_window = (Window)window;
+    
+    XWindowAttributes attr;
+    const Status res = XGetWindowAttributes(wyn_state.xlib_display, x11_window, &attr);
+    WYN_ASSERT(res != 0);
+    
+    return (wyn_rect_t){
+        .origin = { .x = (wyn_coord_t)(attr.x), .y = (wyn_coord_t)(attr.y) },
+        .extent = { .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) }
+    };
+#else
+    #error "Unimplemented"
+#endif
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see Xlib:
+ * - https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml
+ */
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
+{
+    const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
+    const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
+    const wyn_coord_t rounded_w = extent ? ceil(extent->w) : 0.0;
+    const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
+
+#if defined(WYN_XLIB)
+    const Window x11_window = (Window)window;
+    
+    if (origin && extent)
+    {
+        [[maybe_unused]] const int res = XMoveResizeWindow(wyn_state.xlib_display, x11_window, (int)rounded_x, (int)rounded_y, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    }
+    else if (extent)
+    {
+        [[maybe_unused]] const int res = XResizeWindow(wyn_state.xlib_display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    }
+    else if (origin)
+    {
+        [[maybe_unused]] const int res = XMoveWindow(wyn_state.xlib_display, x11_window, (int)rounded_x, (int)rounded_y);
+    }
+
     wyn_dispatch_x11(true);
 #else
     #error "Unimplemented"

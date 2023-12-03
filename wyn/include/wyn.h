@@ -21,6 +21,9 @@
 //  Type Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
+/**
+ * @brief Language-specific boolean type.
+ */
 #if defined(__cplusplus)
     typedef bool wyn_bool_t;
 #else
