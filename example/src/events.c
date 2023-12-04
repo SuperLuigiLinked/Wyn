@@ -118,7 +118,7 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
 extern void wyn_on_text(void* const userdata, wyn_window_t const window, const wyn_utf8_t* const text)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") {%p} TEXT | \"%s\"\n", ++self->num_events, (void*)window, (const char*)text);
+    LOG("[EVENTS] (%"PRIu64") {%p} TEXT | [%zu] \"%s\"\n", ++self->num_events, (void*)window, strlen((const char*)text), (const char*)text);
     if (window != self->window) return;
 
 }

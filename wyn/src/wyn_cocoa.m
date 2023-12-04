@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #import <Cocoa/Cocoa.h>
+#import <Carbon/Carbon.h>
 
 // ================================================================================================================================
 //  Private Macros
@@ -361,7 +362,10 @@ static void wyn_run_native(void)
 
     NSString* const ns_string = [event characters];
     const char* const text = [ns_string UTF8String];
-    wyn_on_text(wyn_state.userdata, (wyn_window_t)ns_window, (const wyn_utf8_t*)text);
+    const size_t text_len = strlen(text);
+    
+    if (text_len > 0)
+        wyn_on_text(wyn_state.userdata, (wyn_window_t)ns_window, (const wyn_utf8_t*)text);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1527436-keyup?language=objc
@@ -628,6 +632,124 @@ extern void* wyn_native_context(wyn_window_t const window)
 {
     NSWindow* const ns_window = (NSWindow*)window;
     return [ns_window contentView];
+}
+
+// ================================================================================================================================
+
+extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
+{
+    static const wyn_vb_mapping_t mapping = {
+        [wyn_vb_left]   = kCGMouseButtonLeft, 
+        [wyn_vb_right]  = kCGMouseButtonRight,
+        [wyn_vb_middle] = kCGMouseButtonCenter,
+    };
+    return &mapping;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
+{
+    static const wyn_vk_mapping_t mapping = {
+        [wyn_vk_0]              = kVK_ANSI_0,
+        [wyn_vk_1]              = kVK_ANSI_1,
+        [wyn_vk_2]              = kVK_ANSI_2,
+        [wyn_vk_3]              = kVK_ANSI_3,
+        [wyn_vk_4]              = kVK_ANSI_4,
+        [wyn_vk_5]              = kVK_ANSI_5,
+        [wyn_vk_6]              = kVK_ANSI_6,
+        [wyn_vk_7]              = kVK_ANSI_7,
+        [wyn_vk_8]              = kVK_ANSI_8,
+        [wyn_vk_9]              = kVK_ANSI_9,
+        [wyn_vk_A]              = kVK_ANSI_A,
+        [wyn_vk_B]              = kVK_ANSI_B,
+        [wyn_vk_C]              = kVK_ANSI_C,
+        [wyn_vk_D]              = kVK_ANSI_D,
+        [wyn_vk_E]              = kVK_ANSI_E,
+        [wyn_vk_F]              = kVK_ANSI_F,
+        [wyn_vk_G]              = kVK_ANSI_G,
+        [wyn_vk_H]              = kVK_ANSI_H,
+        [wyn_vk_I]              = kVK_ANSI_I,
+        [wyn_vk_J]              = kVK_ANSI_J,
+        [wyn_vk_K]              = kVK_ANSI_K,
+        [wyn_vk_L]              = kVK_ANSI_L,
+        [wyn_vk_M]              = kVK_ANSI_M,
+        [wyn_vk_N]              = kVK_ANSI_N,
+        [wyn_vk_O]              = kVK_ANSI_O,
+        [wyn_vk_P]              = kVK_ANSI_P,
+        [wyn_vk_Q]              = kVK_ANSI_Q,
+        [wyn_vk_R]              = kVK_ANSI_R,
+        [wyn_vk_S]              = kVK_ANSI_S,
+        [wyn_vk_T]              = kVK_ANSI_T,
+        [wyn_vk_U]              = kVK_ANSI_U,
+        [wyn_vk_V]              = kVK_ANSI_V,
+        [wyn_vk_W]              = kVK_ANSI_W,
+        [wyn_vk_X]              = kVK_ANSI_X,
+        [wyn_vk_Y]              = kVK_ANSI_Y,
+        [wyn_vk_Z]              = kVK_ANSI_Z,
+        [wyn_vk_Left]           = kVK_LeftArrow,
+        [wyn_vk_Right]          = kVK_RightArrow,
+        [wyn_vk_Up]             = kVK_UpArrow,
+        [wyn_vk_Down]           = kVK_DownArrow,
+        [wyn_vk_Period]         = kVK_ANSI_Period,
+        [wyn_vk_Comma]          = kVK_ANSI_Comma,
+        [wyn_vk_Semicolon]      = kVK_ANSI_Semicolon,
+        [wyn_vk_Quote]          = kVK_ANSI_Quote,
+        [wyn_vk_Slash]          = kVK_ANSI_Slash,
+        [wyn_vk_Backslash]      = kVK_ANSI_Backslash,
+        [wyn_vk_BracketL]       = kVK_ANSI_LeftBracket,
+        [wyn_vk_BracketR]       = kVK_ANSI_RightBracket,
+        [wyn_vk_Plus]           = kVK_ANSI_Equal,
+        [wyn_vk_Minus]          = kVK_ANSI_Minus,
+        [wyn_vk_Accent]         = kVK_ANSI_Grave,
+        [wyn_vk_Control]        = kVK_Control,
+        [wyn_vk_Start]          = kVK_Command,
+        [wyn_vk_Alt]            = kVK_Option,
+        [wyn_vk_Space]          = kVK_Space,
+        [wyn_vk_Backspace]      = kVK_Delete,
+        [wyn_vk_Delete]         = kVK_ForwardDelete,
+        [wyn_vk_Insert]         = (wyn_keycode_t)~0,
+        [wyn_vk_Shift]          = kVK_Shift,
+        [wyn_vk_CapsLock]       = kVK_CapsLock,
+        [wyn_vk_Tab]            = kVK_Tab,
+        [wyn_vk_Enter]          = kVK_Return,
+        [wyn_vk_Escape]         = kVK_Escape,
+        [wyn_vk_Home]           = kVK_Home,
+        [wyn_vk_End]            = kVK_End,
+        [wyn_vk_PageUp]         = kVK_PageUp,
+        [wyn_vk_PageDown]       = kVK_PageDown,
+        [wyn_vk_F1]             = kVK_F1,
+        [wyn_vk_F2]             = kVK_F2,
+        [wyn_vk_F3]             = kVK_F3,
+        [wyn_vk_F4]             = kVK_F4,
+        [wyn_vk_F5]             = kVK_F5,
+        [wyn_vk_F6]             = kVK_F6,
+        [wyn_vk_F7]             = kVK_F7,
+        [wyn_vk_F8]             = kVK_F8,
+        [wyn_vk_F9]             = kVK_F9,
+        [wyn_vk_F10]            = kVK_F10,
+        [wyn_vk_F11]            = kVK_F11,
+        [wyn_vk_F12]            = kVK_F12,
+        [wyn_vk_PrintScreen]    = (wyn_keycode_t)~0,
+        [wyn_vk_ScrollLock]     = (wyn_keycode_t)~0,
+        [wyn_vk_NumLock]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad0]        = kVK_ANSI_Keypad0,
+        [wyn_vk_Numpad1]        = kVK_ANSI_Keypad1,
+        [wyn_vk_Numpad2]        = kVK_ANSI_Keypad2,
+        [wyn_vk_Numpad3]        = kVK_ANSI_Keypad3,
+        [wyn_vk_Numpad4]        = kVK_ANSI_Keypad4,
+        [wyn_vk_Numpad5]        = kVK_ANSI_Keypad5,
+        [wyn_vk_Numpad6]        = kVK_ANSI_Keypad6,
+        [wyn_vk_Numpad7]        = kVK_ANSI_Keypad7,
+        [wyn_vk_Numpad8]        = kVK_ANSI_Keypad8,
+        [wyn_vk_Numpad9]        = kVK_ANSI_Keypad9,
+        [wyn_vk_NumpadPlus]     = kVK_ANSI_KeypadPlus,
+        [wyn_vk_NumpadMinus]    = kVK_ANSI_KeypadMinus,
+        [wyn_vk_NumpadMultiply] = kVK_ANSI_KeypadMultiply,
+        [wyn_vk_NumpadDivide]   = kVK_ANSI_KeypadDivide,
+        [wyn_vk_NumpadPeriod]   = kVK_ANSI_KeypadDecimal,
+    };
+    return &mapping;
 }
 
 // ================================================================================================================================

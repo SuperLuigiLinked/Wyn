@@ -281,10 +281,9 @@ static void wyn_convert_text(wyn_window_t const window, const WCHAR* src_chr, co
     char dst_chr[5];
     const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr) - 1, NULL, NULL);
     dst_chr[dst_len] = '\0';
-    
-    WYN_ASSERT((dst_len > 0) && (dst_len <= 4));
 
-    wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
+    if (dst_len > 0)
+        wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

@@ -924,3 +924,129 @@ extern void* wyn_native_context(wyn_window_t const window)
 }
 
 // ================================================================================================================================
+
+/**
+ * @see -:
+ * -
+ */
+extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
+{
+    static const wyn_vb_mapping_t mapping = {
+        [wyn_vb_left]   = (wyn_button_t)~0, 
+        [wyn_vb_right]  = (wyn_button_t)~0,
+        [wyn_vb_middle] = (wyn_button_t)~0,
+    };
+    return &mapping;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @see -:
+ * - 
+ */
+extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
+{
+    static const wyn_vk_mapping_t mapping = {
+        [wyn_vk_0]              = (wyn_keycode_t)~0,
+        [wyn_vk_1]              = (wyn_keycode_t)~0,
+        [wyn_vk_2]              = (wyn_keycode_t)~0,
+        [wyn_vk_3]              = (wyn_keycode_t)~0,
+        [wyn_vk_4]              = (wyn_keycode_t)~0,
+        [wyn_vk_5]              = (wyn_keycode_t)~0,
+        [wyn_vk_6]              = (wyn_keycode_t)~0,
+        [wyn_vk_7]              = (wyn_keycode_t)~0,
+        [wyn_vk_8]              = (wyn_keycode_t)~0,
+        [wyn_vk_9]              = (wyn_keycode_t)~0,
+        [wyn_vk_A]              = (wyn_keycode_t)~0,
+        [wyn_vk_B]              = (wyn_keycode_t)~0,
+        [wyn_vk_C]              = (wyn_keycode_t)~0,
+        [wyn_vk_D]              = (wyn_keycode_t)~0,
+        [wyn_vk_E]              = (wyn_keycode_t)~0,
+        [wyn_vk_F]              = (wyn_keycode_t)~0,
+        [wyn_vk_G]              = (wyn_keycode_t)~0,
+        [wyn_vk_H]              = (wyn_keycode_t)~0,
+        [wyn_vk_I]              = (wyn_keycode_t)~0,
+        [wyn_vk_J]              = (wyn_keycode_t)~0,
+        [wyn_vk_K]              = (wyn_keycode_t)~0,
+        [wyn_vk_L]              = (wyn_keycode_t)~0,
+        [wyn_vk_M]              = (wyn_keycode_t)~0,
+        [wyn_vk_N]              = (wyn_keycode_t)~0,
+        [wyn_vk_O]              = (wyn_keycode_t)~0,
+        [wyn_vk_P]              = (wyn_keycode_t)~0,
+        [wyn_vk_Q]              = (wyn_keycode_t)~0,
+        [wyn_vk_R]              = (wyn_keycode_t)~0,
+        [wyn_vk_S]              = (wyn_keycode_t)~0,
+        [wyn_vk_T]              = (wyn_keycode_t)~0,
+        [wyn_vk_U]              = (wyn_keycode_t)~0,
+        [wyn_vk_V]              = (wyn_keycode_t)~0,
+        [wyn_vk_W]              = (wyn_keycode_t)~0,
+        [wyn_vk_X]              = (wyn_keycode_t)~0,
+        [wyn_vk_Y]              = (wyn_keycode_t)~0,
+        [wyn_vk_Z]              = (wyn_keycode_t)~0,
+        [wyn_vk_Left]           = (wyn_keycode_t)~0,
+        [wyn_vk_Right]          = (wyn_keycode_t)~0,
+        [wyn_vk_Up]             = (wyn_keycode_t)~0,
+        [wyn_vk_Down]           = (wyn_keycode_t)~0,
+        [wyn_vk_Period]         = (wyn_keycode_t)~0,
+        [wyn_vk_Comma]          = (wyn_keycode_t)~0,
+        [wyn_vk_Semicolon]      = (wyn_keycode_t)~0,
+        [wyn_vk_Quote]          = (wyn_keycode_t)~0,
+        [wyn_vk_Slash]          = (wyn_keycode_t)~0,
+        [wyn_vk_Backslash]      = (wyn_keycode_t)~0,
+        [wyn_vk_BracketL]       = (wyn_keycode_t)~0,
+        [wyn_vk_BracketR]       = (wyn_keycode_t)~0,
+        [wyn_vk_Plus]           = (wyn_keycode_t)~0,
+        [wyn_vk_Minus]          = (wyn_keycode_t)~0,
+        [wyn_vk_Accent]         = (wyn_keycode_t)~0,
+        [wyn_vk_Control]        = (wyn_keycode_t)~0,
+        [wyn_vk_Start]          = (wyn_keycode_t)~0,
+        [wyn_vk_Alt]            = (wyn_keycode_t)~0,
+        [wyn_vk_Space]          = (wyn_keycode_t)~0,
+        [wyn_vk_Backspace]      = (wyn_keycode_t)~0,
+        [wyn_vk_Delete]         = (wyn_keycode_t)~0,
+        [wyn_vk_Insert]         = (wyn_keycode_t)~0,
+        [wyn_vk_Shift]          = (wyn_keycode_t)~0,
+        [wyn_vk_CapsLock]       = (wyn_keycode_t)~0,
+        [wyn_vk_Tab]            = (wyn_keycode_t)~0,
+        [wyn_vk_Enter]          = (wyn_keycode_t)~0,
+        [wyn_vk_Escape]         = (wyn_keycode_t)~0,
+        [wyn_vk_Home]           = (wyn_keycode_t)~0,
+        [wyn_vk_End]            = (wyn_keycode_t)~0,
+        [wyn_vk_PageUp]         = (wyn_keycode_t)~0,
+        [wyn_vk_PageDown]       = (wyn_keycode_t)~0,
+        [wyn_vk_F1]             = (wyn_keycode_t)~0,
+        [wyn_vk_F2]             = (wyn_keycode_t)~0,
+        [wyn_vk_F3]             = (wyn_keycode_t)~0,
+        [wyn_vk_F4]             = (wyn_keycode_t)~0,
+        [wyn_vk_F5]             = (wyn_keycode_t)~0,
+        [wyn_vk_F6]             = (wyn_keycode_t)~0,
+        [wyn_vk_F7]             = (wyn_keycode_t)~0,
+        [wyn_vk_F8]             = (wyn_keycode_t)~0,
+        [wyn_vk_F9]             = (wyn_keycode_t)~0,
+        [wyn_vk_F10]            = (wyn_keycode_t)~0,
+        [wyn_vk_F11]            = (wyn_keycode_t)~0,
+        [wyn_vk_F12]            = (wyn_keycode_t)~0,
+        [wyn_vk_PrintScreen]    = (wyn_keycode_t)~0,
+        [wyn_vk_ScrollLock]     = (wyn_keycode_t)~0,
+        [wyn_vk_NumLock]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad0]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad1]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad2]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad3]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad4]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad5]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad6]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad7]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad8]        = (wyn_keycode_t)~0,
+        [wyn_vk_Numpad9]        = (wyn_keycode_t)~0,
+        [wyn_vk_NumpadPlus]     = (wyn_keycode_t)~0,
+        [wyn_vk_NumpadMinus]    = (wyn_keycode_t)~0,
+        [wyn_vk_NumpadMultiply] = (wyn_keycode_t)~0,
+        [wyn_vk_NumpadDivide]   = (wyn_keycode_t)~0,
+        [wyn_vk_NumpadPeriod]   = (wyn_keycode_t)~0,
+    };
+    return &mapping;
+}
+
+// ================================================================================================================================
