@@ -25,8 +25,8 @@ extern void __attribute__((weak)) wyn_on_window_redraw(void* userdata, wyn_windo
 extern void __attribute__((weak)) wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale)
 { (void)userdata; (void)window; (void)content; (void)scale; }
 
-extern void __attribute__((weak)) wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, wyn_coord_t py)
-{ (void)userdata; (void)window; (void)px; (void)py; }
+extern void __attribute__((weak)) wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t sx, wyn_coord_t sy)
+{ (void)userdata; (void)window; (void)sx; (void)sy; }
 
 extern void __attribute__((weak)) wyn_on_scroll(void* userdata, wyn_window_t window, wyn_coord_t dx, wyn_coord_t dy)
 { (void)userdata; (void)window; (void)dx; (void)dy; }

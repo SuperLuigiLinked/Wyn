@@ -262,14 +262,15 @@ static void wyn_run_native(void)
 - (void)mouseMoved:(NSEvent*)event
 {
     NSWindow* const ns_window = [event window];
-    NSPoint const ns_point = [NSEvent mouseLocation];
+    
+    NSPoint const global_point = [NSEvent mouseLocation];
     NSRect const frame_rect = [ns_window frame];
     NSRect const content_rect  = [ns_window contentRectForFrameRect:frame_rect];
-    if ([wyn_state.delegate mouse:ns_point inRect:content_rect])
+
+    if ([wyn_state.delegate mouse:global_point inRect:content_rect])
     {
-        NSPoint const sc_point = [ns_window convertPointFromScreen:ns_point];
-        NSPoint const px_point = [ns_window convertPointToBacking:sc_point];
-        wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)px_point.x, (wyn_coord_t)px_point.y);
+        NSPoint const local_point = [event locationInWindow];
+        wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)local_point.x, (wyn_coord_t)local_point.y);
     }
 }
 

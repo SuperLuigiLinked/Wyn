@@ -83,10 +83,10 @@ extern void wyn_on_window_reposition(void* const userdata, wyn_window_t const wi
 
 }
 
-extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_coord_t const px, wyn_coord_t const py)
+extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_coord_t const sx, wyn_coord_t const sy)
 {
     App* const self = userdata;
-    LOG("[EVENTS] (%"PRIu64") {%p} CURSOR | (%f , %f)\n", ++self->num_events, (void*)window, (double)px, (double)py);
+    LOG("[EVENTS] (%"PRIu64") {%p} CURSOR | (%f , %f)\n", ++self->num_events, (void*)window, (double)sx, (double)sy);
     if (window != self->window) return;
 
 }

@@ -156,7 +156,6 @@ extern wyn_extent_t wyn_window_size(wyn_window_t window);
  */
 extern void wyn_window_resize(wyn_window_t window, wyn_extent_t extent);
 
-
 /**
  * @brief Queries the Position of a Window.
  * @param[in] window [non-null] A handle to the Window.
@@ -258,10 +257,10 @@ extern void wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_re
  * @brief Called when a Cursor is moved across a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] px       The new X-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
- * @param[in] py       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ * @param[in] sx       The new X-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ * @param[in] sy       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
  */
-extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t px, wyn_coord_t py);
+extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t sx, wyn_coord_t sy);
 
 /**
  * @brief Called when a Scroll input occurs on a Window.
