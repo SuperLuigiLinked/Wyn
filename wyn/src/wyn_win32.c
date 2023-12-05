@@ -343,6 +343,13 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             break; //return 0;
         }
 
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-activate
+        case WM_ACTIVATE:
+        {
+            wyn_on_window_focus(wyn_state.userdata, window, wparam != WA_INACTIVE);
+            break;
+        }
+
         // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
         case WM_WINDOWPOSCHANGED:
         {
@@ -356,20 +363,29 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             const int xpos = GET_X_LPARAM(lparam);
             const int ypos = GET_Y_LPARAM(lparam);
             wyn_on_cursor(wyn_state.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
+
+            TRACKMOUSEEVENT track = {
+                .cbSize = sizeof(TRACKMOUSEEVENT),
+                .dwFlags = TME_LEAVE,
+                .hwndTrack = hwnd,
+                .dwHoverTime = HOVER_DEFAULT,
+            };
+            const BOOL res_track = TrackMouseEvent(&track);
+            WYN_ASSERT(res_track != 0);
+
             return 0;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehover
         case WM_MOUSEHOVER:
         {
-            // WYN_LOG("[WYN] WM_MOUSEHOVER\n");
             break;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
         case WM_MOUSELEAVE:
         {
-            // WYN_LOG("[WYN] WM_MOUSELEAVE\n");
+            wyn_on_cursor_exit(wyn_state.userdata, window);
             break;
         }
 
@@ -400,6 +416,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown
         case WM_LBUTTONDOWN:
         {
+            (void)SetCapture(hwnd);
+
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -410,6 +428,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttondown
         case WM_RBUTTONDOWN:
         {
+            (void)SetCapture(hwnd);
+
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -420,6 +440,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttondown
         case WM_MBUTTONDOWN:
         {
+            (void)SetCapture(hwnd);
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -430,6 +452,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttondown
         case WM_XBUTTONDOWN:
         {
+            (void)SetCapture(hwnd);
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -442,6 +466,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttonup
         case WM_LBUTTONUP:
         {
+            (void)ReleaseCapture();
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -452,6 +478,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttonup
         case WM_RBUTTONUP:
         {
+            (void)ReleaseCapture();
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -462,6 +490,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttonup
         case WM_MBUTTONUP:
         {
+            (void)ReleaseCapture();
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
@@ -472,6 +502,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttonup
         case WM_XBUTTONUP:
         {
+            (void)ReleaseCapture();
+            
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
