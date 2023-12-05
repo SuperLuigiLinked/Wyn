@@ -32,6 +32,7 @@
     #include <xcb/xcb.h>
 #endif
 #include <X11/keysym.h>
+#include <X11/XKBlib.h>
 
 // ================================================================================================================================
 //  Private Macros
@@ -238,6 +239,10 @@ static bool wyn_reinit(void* userdata)
         // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
         wyn_state.xim = XOpenIM(wyn_state.xlib_display, NULL, NULL, NULL);
         if (wyn_state.xim == 0) return false;
+
+        // https://linux.die.net/man/3/xkbsetdetectableautorepeat
+        Bool res_repeat = XkbSetDetectableAutoRepeat(wyn_state.xlib_display, true, NULL);
+        (void)res_repeat;
     }
 #endif
 
@@ -385,6 +390,22 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XFocusChangeEvent.3.xhtml
+            case FocusIn:
+            {
+                const XFocusInEvent* const xevt = &event.xfocus;
+                wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)xevt->window, true);
+                break;
+            }
+
+            // https://www.x.org/releases/current/doc/man/man3/XFocusChangeEvent.3.xhtml
+            case FocusOut:
+            {
+                const XFocusInEvent* const xevt = &event.xfocus;
+                wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)xevt->window, false);
+                break;
+            }
+
             // https://www.x.org/releases/current/doc/man/man3/XConfigureEvent.3.xhtml
             case ConfigureNotify:
             {
@@ -417,7 +438,7 @@ static void wyn_dispatch_x11(bool const sync)
             case LeaveNotify:
             {
                 const XLeaveWindowEvent* const xevt = &event.xcrossing;
-                (void)xevt;
+                wyn_on_cursor_exit(wyn_state.userdata, (wyn_window_t)xevt->window);
                 break;
             }
 
