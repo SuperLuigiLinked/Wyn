@@ -31,7 +31,7 @@
 #elif defined(WYN_XCB)
     #include <xcb/xcb.h>
 #endif
-
+#include <X11/keysym.h>
 
 // ================================================================================================================================
 //  Private Macros
@@ -86,6 +86,8 @@ struct wyn_state_t
 
 #if defined(WYN_X11) || defined(WYN_XLIB)
     Display* xlib_display; ///< The Xlib Connection to the X Window System.
+
+    XIM xim; ///< X Input Manager
 #endif
 
 #if defined(WYN_X11) || defined(WYN_XCB)
@@ -231,6 +233,14 @@ static bool wyn_reinit(void* userdata)
         if (wyn_state.evt_fd == -1) return false;
     }
 
+#if defined(WYN_X11) || defined(WYN_XLIB)
+    {
+        // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
+        wyn_state.xim = XOpenIM(wyn_state.xlib_display, NULL, NULL, NULL);
+        if (wyn_state.xim == 0) return false;
+    }
+#endif
+
     return true;
 }
 
@@ -244,6 +254,14 @@ static bool wyn_reinit(void* userdata)
  */
 static void wyn_deinit(void)
 {
+#if defined(WYN_X11) || defined(WYN_XLIB)
+    if (wyn_state.xim != NULL)
+    {
+        // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
+        [[maybe_unused]] const int res = XCloseIM(wyn_state.xim);
+    }
+#endif
+
 #if defined(WYN_XCB)
     if (wyn_state.xcb_connection != NULL)
     {
@@ -359,7 +377,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
-            // https://www.x.org/releases/current/doc/man/man3/XClientMessageEvent.3.xhtml
+            // https://www.x.org/releases/current/doc/man/man3/XExposeEvent.3.xhtml
             case Expose:
             {
                 const XExposeEvent* const xevt = &event.xexpose;
@@ -367,6 +385,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XConfigureEvent.3.xhtml
             case ConfigureNotify:
             {
                 const XConfigureEvent* const xevt = &event.xconfigure;
@@ -378,6 +397,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XButtonEvent.3.xhtml
             case MotionNotify:
             {
                 const XPointerMovedEvent* const xevt = &event.xmotion;
@@ -385,6 +405,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
             
+            // https://www.x.org/releases/current/doc/man/man3/XCrossingEvent.3.xhtml
             case EnterNotify:
             {
                 const XEnterWindowEvent* const xevt = &event.xcrossing;
@@ -392,6 +413,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
             
+            // https://www.x.org/releases/current/doc/man/man3/XCrossingEvent.3.xhtml
             case LeaveNotify:
             {
                 const XLeaveWindowEvent* const xevt = &event.xcrossing;
@@ -399,6 +421,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XButtonEvent.3.xhtml
             case ButtonPress:
             {
                 const XButtonPressedEvent* const xevt = &event.xbutton;
@@ -425,6 +448,7 @@ static void wyn_dispatch_x11(bool const sync)
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XButtonEvent.3.xhtml
             case ButtonRelease:
             {
                 const XButtonReleasedEvent* const xevt = &event.xbutton;
@@ -440,51 +464,57 @@ static void wyn_dispatch_x11(bool const sync)
                 case 7:
                     break;
                 default:
-                    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_button_t)xevt->button, true);
+                    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_button_t)xevt->button, false);
                     break;
                 }
 
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XButtonEvent.3.xhtml
             case KeyPress:
             {
                 const XKeyPressedEvent* const xevt = &event.xkey;
                 wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)xevt->window, (wyn_keycode_t)xevt->keycode, true);
-
+                // {
+                //     const KeyCode keycode = (KeyCode)xevt->keycode;
+                //     const KeySym keysym = XKeycodeToKeysym(wyn_state.xlib_display, keycode, 0);
+                //     WYN_LOG("[WYN] %u -> %u\n", (unsigned)keycode, (unsigned)keysym);
+                // }
                 {
-                    // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
-                    const XIM xim = XOpenIM(wyn_state.xlib_display, NULL, NULL, NULL);
-                    WYN_ASSERT(xim != NULL);
-                    {
-                        // https://www.x.org/releases/X11R7.5/doc/man/man3/XIMOfIC.3.html
-                        const XIC xic = XCreateIC(xim,
-                            XNClientWindow, xevt->window,
-                            XNFocusWindow,  xevt->window,
-                            XNInputStyle,   XIMPreeditNothing  | XIMStatusNothing,
-                            (void*)NULL
-                        );
-                        WYN_ASSERT(xic != NULL);
-                        {
-                            // https://linux.die.net/man/3/xutf8lookupstring
-                            KeySym keysym = 0;
-                            Status status = 0;
-                            char buffer[5] = {};
-                            const int res = Xutf8LookupString(xic, &event.xkey, buffer, sizeof(buffer) - 1, &keysym, &status);
-                            WYN_LOG("[WYN] <%d> (%ld) [%d] \"%.4s\"\n", (int)status, (long)keysym, (int)res, (const char*)buffer);
+                    // https://www.x.org/releases/X11R7.5/doc/man/man3/XIMOfIC.3.html
+                    const XIC xic = XCreateIC(wyn_state.xim,
+                        XNInputStyle,   XIMPreeditNothing | XIMStatusNothing,
+                        XNClientWindow, xevt->window,
+                        XNFocusWindow,  xevt->window,
+                        (void*)NULL
+                    );
+                    WYN_ASSERT(xic != NULL);
 
-                            if (res > 0)
-                                wyn_on_text(wyn_state.userdata, (wyn_window_t)xevt->window, (const wyn_utf8_t*)buffer);
-                        }
-                        XDestroyIC(xic);
+                    {
+                        // https://linux.die.net/man/3/xutf8lookupstring
+                        KeySym keysym = 0;
+                        Status status = 0;
+                        char buffer[5] = {};
+                        const int len = Xutf8LookupString(xic, &event.xkey, buffer, sizeof(buffer) - 1, &keysym, &status);
+                        
+                        // WYN_LOG("[WYN] <%d> (%ld) [%d] \"%.4s\"\n", (int)status, (long)keysym, (int)len, (const char*)buffer);
+                        // for (int i = 0; i < len; ++i)
+                        // {
+                        //     WYN_LOG("* %02X\n", (unsigned)(unsigned char)buffer[i]);
+                        // }
+
+                        if (len > 0)
+                            wyn_on_text(wyn_state.userdata, (wyn_window_t)xevt->window, (const wyn_utf8_t*)buffer);
                     }
-                    const int res = XCloseIM(xim);
-                    (void)res;
+
+                    XDestroyIC(xic);
                 }
 
                 break;
             }
 
+            // https://www.x.org/releases/current/doc/man/man3/XButtonEvent.3.xhtml
             case KeyRelease:
             {
                 const XKeyReleasedEvent* const xevt = &event.xkey;
@@ -925,127 +955,129 @@ extern void* wyn_native_context(wyn_window_t const window)
 
 // ================================================================================================================================
 
-/**
- * @see -:
- * -
- */
 extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
 {
     static const wyn_vb_mapping_t mapping = {
-        [wyn_vb_left]   = (wyn_button_t)~0, 
-        [wyn_vb_right]  = (wyn_button_t)~0,
-        [wyn_vb_middle] = (wyn_button_t)~0,
+        [wyn_vb_left]   = Button1,
+        [wyn_vb_right]  = Button3,
+        [wyn_vb_middle] = Button2,
     };
     return &mapping;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see -:
- * - 
- */
+static inline wyn_keycode_t wyn_map_keysym(const KeySym keysym)
+{
+    if (keysym == NoSymbol) return (wyn_keycode_t)~0;
+    const KeyCode keycode = XKeysymToKeycode(wyn_state.xlib_display, keysym);
+    return keycode == NoSymbol ? (wyn_keycode_t)~0 : (wyn_keycode_t)keycode; 
+}
+
 extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
 {
-    static const wyn_vk_mapping_t mapping = {
-        [wyn_vk_0]              = (wyn_keycode_t)~0,
-        [wyn_vk_1]              = (wyn_keycode_t)~0,
-        [wyn_vk_2]              = (wyn_keycode_t)~0,
-        [wyn_vk_3]              = (wyn_keycode_t)~0,
-        [wyn_vk_4]              = (wyn_keycode_t)~0,
-        [wyn_vk_5]              = (wyn_keycode_t)~0,
-        [wyn_vk_6]              = (wyn_keycode_t)~0,
-        [wyn_vk_7]              = (wyn_keycode_t)~0,
-        [wyn_vk_8]              = (wyn_keycode_t)~0,
-        [wyn_vk_9]              = (wyn_keycode_t)~0,
-        [wyn_vk_A]              = (wyn_keycode_t)~0,
-        [wyn_vk_B]              = (wyn_keycode_t)~0,
-        [wyn_vk_C]              = (wyn_keycode_t)~0,
-        [wyn_vk_D]              = (wyn_keycode_t)~0,
-        [wyn_vk_E]              = (wyn_keycode_t)~0,
-        [wyn_vk_F]              = (wyn_keycode_t)~0,
-        [wyn_vk_G]              = (wyn_keycode_t)~0,
-        [wyn_vk_H]              = (wyn_keycode_t)~0,
-        [wyn_vk_I]              = (wyn_keycode_t)~0,
-        [wyn_vk_J]              = (wyn_keycode_t)~0,
-        [wyn_vk_K]              = (wyn_keycode_t)~0,
-        [wyn_vk_L]              = (wyn_keycode_t)~0,
-        [wyn_vk_M]              = (wyn_keycode_t)~0,
-        [wyn_vk_N]              = (wyn_keycode_t)~0,
-        [wyn_vk_O]              = (wyn_keycode_t)~0,
-        [wyn_vk_P]              = (wyn_keycode_t)~0,
-        [wyn_vk_Q]              = (wyn_keycode_t)~0,
-        [wyn_vk_R]              = (wyn_keycode_t)~0,
-        [wyn_vk_S]              = (wyn_keycode_t)~0,
-        [wyn_vk_T]              = (wyn_keycode_t)~0,
-        [wyn_vk_U]              = (wyn_keycode_t)~0,
-        [wyn_vk_V]              = (wyn_keycode_t)~0,
-        [wyn_vk_W]              = (wyn_keycode_t)~0,
-        [wyn_vk_X]              = (wyn_keycode_t)~0,
-        [wyn_vk_Y]              = (wyn_keycode_t)~0,
-        [wyn_vk_Z]              = (wyn_keycode_t)~0,
-        [wyn_vk_Left]           = (wyn_keycode_t)~0,
-        [wyn_vk_Right]          = (wyn_keycode_t)~0,
-        [wyn_vk_Up]             = (wyn_keycode_t)~0,
-        [wyn_vk_Down]           = (wyn_keycode_t)~0,
-        [wyn_vk_Period]         = (wyn_keycode_t)~0,
-        [wyn_vk_Comma]          = (wyn_keycode_t)~0,
-        [wyn_vk_Semicolon]      = (wyn_keycode_t)~0,
-        [wyn_vk_Quote]          = (wyn_keycode_t)~0,
-        [wyn_vk_Slash]          = (wyn_keycode_t)~0,
-        [wyn_vk_Backslash]      = (wyn_keycode_t)~0,
-        [wyn_vk_BracketL]       = (wyn_keycode_t)~0,
-        [wyn_vk_BracketR]       = (wyn_keycode_t)~0,
-        [wyn_vk_Plus]           = (wyn_keycode_t)~0,
-        [wyn_vk_Minus]          = (wyn_keycode_t)~0,
-        [wyn_vk_Accent]         = (wyn_keycode_t)~0,
-        [wyn_vk_Control]        = (wyn_keycode_t)~0,
-        [wyn_vk_Start]          = (wyn_keycode_t)~0,
-        [wyn_vk_Alt]            = (wyn_keycode_t)~0,
-        [wyn_vk_Space]          = (wyn_keycode_t)~0,
-        [wyn_vk_Backspace]      = (wyn_keycode_t)~0,
-        [wyn_vk_Delete]         = (wyn_keycode_t)~0,
-        [wyn_vk_Insert]         = (wyn_keycode_t)~0,
-        [wyn_vk_Shift]          = (wyn_keycode_t)~0,
-        [wyn_vk_CapsLock]       = (wyn_keycode_t)~0,
-        [wyn_vk_Tab]            = (wyn_keycode_t)~0,
-        [wyn_vk_Enter]          = (wyn_keycode_t)~0,
-        [wyn_vk_Escape]         = (wyn_keycode_t)~0,
-        [wyn_vk_Home]           = (wyn_keycode_t)~0,
-        [wyn_vk_End]            = (wyn_keycode_t)~0,
-        [wyn_vk_PageUp]         = (wyn_keycode_t)~0,
-        [wyn_vk_PageDown]       = (wyn_keycode_t)~0,
-        [wyn_vk_F1]             = (wyn_keycode_t)~0,
-        [wyn_vk_F2]             = (wyn_keycode_t)~0,
-        [wyn_vk_F3]             = (wyn_keycode_t)~0,
-        [wyn_vk_F4]             = (wyn_keycode_t)~0,
-        [wyn_vk_F5]             = (wyn_keycode_t)~0,
-        [wyn_vk_F6]             = (wyn_keycode_t)~0,
-        [wyn_vk_F7]             = (wyn_keycode_t)~0,
-        [wyn_vk_F8]             = (wyn_keycode_t)~0,
-        [wyn_vk_F9]             = (wyn_keycode_t)~0,
-        [wyn_vk_F10]            = (wyn_keycode_t)~0,
-        [wyn_vk_F11]            = (wyn_keycode_t)~0,
-        [wyn_vk_F12]            = (wyn_keycode_t)~0,
-        [wyn_vk_PrintScreen]    = (wyn_keycode_t)~0,
-        [wyn_vk_ScrollLock]     = (wyn_keycode_t)~0,
-        [wyn_vk_NumLock]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad0]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad1]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad2]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad3]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad4]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad5]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad6]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad7]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad8]        = (wyn_keycode_t)~0,
-        [wyn_vk_Numpad9]        = (wyn_keycode_t)~0,
-        [wyn_vk_NumpadPlus]     = (wyn_keycode_t)~0,
-        [wyn_vk_NumpadMinus]    = (wyn_keycode_t)~0,
-        [wyn_vk_NumpadMultiply] = (wyn_keycode_t)~0,
-        [wyn_vk_NumpadDivide]   = (wyn_keycode_t)~0,
-        [wyn_vk_NumpadPeriod]   = (wyn_keycode_t)~0,
-    };
+    #define WYN_MAP_VK(idx, keysym) \
+        mapping[idx] = wyn_map_keysym(keysym)//; \
+        //WYN_LOG("[WYN] %22s | %22s | %5u | = %3u\n", #idx, #keysym, (unsigned)keysym, (unsigned)mapping[idx])
+    
+    static wyn_vk_mapping_t mapping = {};
+    WYN_MAP_VK(wyn_vk_0,              XK_0);
+    WYN_MAP_VK(wyn_vk_1,              XK_1);
+    WYN_MAP_VK(wyn_vk_2,              XK_2);
+    WYN_MAP_VK(wyn_vk_3,              XK_3);
+    WYN_MAP_VK(wyn_vk_4,              XK_4);
+    WYN_MAP_VK(wyn_vk_5,              XK_5);
+    WYN_MAP_VK(wyn_vk_6,              XK_6);
+    WYN_MAP_VK(wyn_vk_7,              XK_7);
+    WYN_MAP_VK(wyn_vk_8,              XK_8);
+    WYN_MAP_VK(wyn_vk_9,              XK_9);
+    WYN_MAP_VK(wyn_vk_A,              XK_A);
+    WYN_MAP_VK(wyn_vk_B,              XK_B);
+    WYN_MAP_VK(wyn_vk_C,              XK_C);
+    WYN_MAP_VK(wyn_vk_D,              XK_D);
+    WYN_MAP_VK(wyn_vk_E,              XK_E);
+    WYN_MAP_VK(wyn_vk_F,              XK_F);
+    WYN_MAP_VK(wyn_vk_G,              XK_G);
+    WYN_MAP_VK(wyn_vk_H,              XK_H);
+    WYN_MAP_VK(wyn_vk_I,              XK_I);
+    WYN_MAP_VK(wyn_vk_J,              XK_J);
+    WYN_MAP_VK(wyn_vk_K,              XK_K);
+    WYN_MAP_VK(wyn_vk_L,              XK_L);
+    WYN_MAP_VK(wyn_vk_M,              XK_M);
+    WYN_MAP_VK(wyn_vk_N,              XK_N);
+    WYN_MAP_VK(wyn_vk_O,              XK_O);
+    WYN_MAP_VK(wyn_vk_P,              XK_P);
+    WYN_MAP_VK(wyn_vk_Q,              XK_Q);
+    WYN_MAP_VK(wyn_vk_R,              XK_R);
+    WYN_MAP_VK(wyn_vk_S,              XK_S);
+    WYN_MAP_VK(wyn_vk_T,              XK_T);
+    WYN_MAP_VK(wyn_vk_U,              XK_U);
+    WYN_MAP_VK(wyn_vk_V,              XK_V);
+    WYN_MAP_VK(wyn_vk_W,              XK_W);
+    WYN_MAP_VK(wyn_vk_X,              XK_X);
+    WYN_MAP_VK(wyn_vk_Y,              XK_Y);
+    WYN_MAP_VK(wyn_vk_Z,              XK_Z);
+    WYN_MAP_VK(wyn_vk_Left,           XK_Left);
+    WYN_MAP_VK(wyn_vk_Right,          XK_Right);
+    WYN_MAP_VK(wyn_vk_Up,             XK_Up);
+    WYN_MAP_VK(wyn_vk_Down,           XK_Down);
+    WYN_MAP_VK(wyn_vk_Period,         XK_period);
+    WYN_MAP_VK(wyn_vk_Comma,          XK_comma);
+    WYN_MAP_VK(wyn_vk_Semicolon,      XK_semicolon);
+    WYN_MAP_VK(wyn_vk_Quote,          XK_apostrophe);
+    WYN_MAP_VK(wyn_vk_Slash,          XK_slash);
+    WYN_MAP_VK(wyn_vk_Backslash,      XK_backslash);
+    WYN_MAP_VK(wyn_vk_BracketL,       XK_bracketleft);
+    WYN_MAP_VK(wyn_vk_BracketR,       XK_bracketright);
+    WYN_MAP_VK(wyn_vk_Plus,           XK_plus);
+    WYN_MAP_VK(wyn_vk_Minus,          XK_minus);
+    WYN_MAP_VK(wyn_vk_Accent,         XK_grave);
+    WYN_MAP_VK(wyn_vk_Control,        XK_Control_L);
+    WYN_MAP_VK(wyn_vk_Start,          XK_Meta_L);
+    WYN_MAP_VK(wyn_vk_Alt,            XK_Alt_L);
+    WYN_MAP_VK(wyn_vk_Space,          XK_space);
+    WYN_MAP_VK(wyn_vk_Backspace,      XK_BackSpace);
+    WYN_MAP_VK(wyn_vk_Delete,         XK_Delete);
+    WYN_MAP_VK(wyn_vk_Insert,         XK_Insert);
+    WYN_MAP_VK(wyn_vk_Shift,          XK_Shift_L);
+    WYN_MAP_VK(wyn_vk_CapsLock,       XK_Caps_Lock);
+    WYN_MAP_VK(wyn_vk_Tab,            XK_Tab);
+    WYN_MAP_VK(wyn_vk_Enter,          XK_Return);
+    WYN_MAP_VK(wyn_vk_Escape,         XK_Escape);
+    WYN_MAP_VK(wyn_vk_Home,           XK_Home);
+    WYN_MAP_VK(wyn_vk_End,            XK_End);
+    WYN_MAP_VK(wyn_vk_PageUp,         XK_Prior);
+    WYN_MAP_VK(wyn_vk_PageDown,       XK_Next);
+    WYN_MAP_VK(wyn_vk_F1,             XK_F1);
+    WYN_MAP_VK(wyn_vk_F2,             XK_F2);
+    WYN_MAP_VK(wyn_vk_F3,             XK_F3);
+    WYN_MAP_VK(wyn_vk_F4,             XK_F4);
+    WYN_MAP_VK(wyn_vk_F5,             XK_F5);
+    WYN_MAP_VK(wyn_vk_F6,             XK_F6);
+    WYN_MAP_VK(wyn_vk_F7,             XK_F7);
+    WYN_MAP_VK(wyn_vk_F8,             XK_F8);
+    WYN_MAP_VK(wyn_vk_F9,             XK_F9);
+    WYN_MAP_VK(wyn_vk_F10,            XK_F10);
+    WYN_MAP_VK(wyn_vk_F11,            XK_F11);
+    WYN_MAP_VK(wyn_vk_F12,            XK_F12);
+    WYN_MAP_VK(wyn_vk_PrintScreen,    XK_Print);
+    WYN_MAP_VK(wyn_vk_ScrollLock,     XK_Scroll_Lock);
+    WYN_MAP_VK(wyn_vk_NumLock,        XK_Num_Lock);
+    WYN_MAP_VK(wyn_vk_Numpad0,        XK_KP_0);
+    WYN_MAP_VK(wyn_vk_Numpad1,        XK_KP_1);
+    WYN_MAP_VK(wyn_vk_Numpad2,        XK_KP_2);
+    WYN_MAP_VK(wyn_vk_Numpad3,        XK_KP_3);
+    WYN_MAP_VK(wyn_vk_Numpad4,        XK_KP_4);
+    WYN_MAP_VK(wyn_vk_Numpad5,        XK_KP_5);
+    WYN_MAP_VK(wyn_vk_Numpad6,        XK_KP_6);
+    WYN_MAP_VK(wyn_vk_Numpad7,        XK_KP_7);
+    WYN_MAP_VK(wyn_vk_Numpad8,        XK_KP_8);
+    WYN_MAP_VK(wyn_vk_Numpad9,        XK_KP_9);
+    WYN_MAP_VK(wyn_vk_NumpadPlus,     XK_KP_Add);
+    WYN_MAP_VK(wyn_vk_NumpadMinus,    XK_KP_Subtract);
+    WYN_MAP_VK(wyn_vk_NumpadMultiply, XK_KP_Multiply);
+    WYN_MAP_VK(wyn_vk_NumpadDivide,   XK_KP_Divide);
+    WYN_MAP_VK(wyn_vk_NumpadPeriod,   XK_KP_Decimal);
     return &mapping;
 }
 
