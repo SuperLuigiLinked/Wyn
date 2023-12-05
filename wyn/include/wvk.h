@@ -151,11 +151,11 @@ enum wyn_vk_t
     wyn_vk_Numpad8,
     wyn_vk_Numpad9,
     
-    wyn_vk_NumpadPlus,
-    wyn_vk_NumpadMinus,
+    wyn_vk_NumpadAdd,
+    wyn_vk_NumpadSubtract,
     wyn_vk_NumpadMultiply,
     wyn_vk_NumpadDivide,
-    wyn_vk_NumpadPeriod,
+    wyn_vk_NumpadDecimal,
 
     wyn_count_vk
 };

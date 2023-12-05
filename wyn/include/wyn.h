@@ -245,6 +245,14 @@ extern void wyn_on_window_close(void* userdata, wyn_window_t window);
 extern void wyn_on_window_redraw(void* userdata, wyn_window_t window);
 
 /**
+ * @brief Called when a Window's focus changes.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window that is about to close.
+ * @param     focused  `true` if the Window gained focused, `false` otherwise.
+ */
+extern void wyn_on_window_focus(void* userdata, wyn_window_t window, bool focused);
+
+/**
  * @brief Called when a Window is resized.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window that was resized.
@@ -261,6 +269,13 @@ extern void wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_re
  * @param[in] sy       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
  */
 extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t sx, wyn_coord_t sy);
+
+/**
+ * @brief Called when a Cursor is moved out of a Window.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ * @param[in] window   [non-null] A handle to the Window.
+ */
+extern void wyn_on_cursor_exit(void* userdata, wyn_window_t window);
 
 /**
  * @brief Called when a Scroll input occurs on a Window.

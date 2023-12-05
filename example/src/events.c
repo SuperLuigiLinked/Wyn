@@ -75,6 +75,14 @@ extern void wyn_on_window_redraw(void* const userdata, wyn_window_t const window
 
 }
 
+extern void wyn_on_window_focus(void* const userdata, wyn_window_t const window, bool const focused)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} FOCUS | %u\n", ++self->num_events, (void*)window, focused);
+    if (window != self->window) return;
+
+}
+
 extern void wyn_on_window_reposition(void* const userdata, wyn_window_t const window, wyn_rect_t const content, wyn_coord_t const scale)
 {
     App* const self = userdata;
@@ -87,6 +95,14 @@ extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_c
 {
     App* const self = userdata;
     LOG("[EVENTS] (%"PRIu64") {%p} CURSOR | (%f , %f)\n", ++self->num_events, (void*)window, (double)sx, (double)sy);
+    if (window != self->window) return;
+
+}
+
+extern void wyn_on_cursor_exit(void* const userdata, wyn_window_t const window)
+{
+    App* const self = userdata;
+    LOG("[EVENTS] (%"PRIu64") {%p} CURSOR EXIT\n", ++self->num_events, (void*)window);
     if (window != self->window) return;
 
 }

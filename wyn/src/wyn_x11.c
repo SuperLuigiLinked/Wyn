@@ -1073,11 +1073,11 @@ extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
     WYN_MAP_VK(wyn_vk_Numpad7,        XK_KP_7);
     WYN_MAP_VK(wyn_vk_Numpad8,        XK_KP_8);
     WYN_MAP_VK(wyn_vk_Numpad9,        XK_KP_9);
-    WYN_MAP_VK(wyn_vk_NumpadPlus,     XK_KP_Add);
-    WYN_MAP_VK(wyn_vk_NumpadMinus,    XK_KP_Subtract);
+    WYN_MAP_VK(wyn_vk_NumpadAdd,      XK_KP_Add);
+    WYN_MAP_VK(wyn_vk_NumpadSubtract, XK_KP_Subtract);
     WYN_MAP_VK(wyn_vk_NumpadMultiply, XK_KP_Multiply);
     WYN_MAP_VK(wyn_vk_NumpadDivide,   XK_KP_Divide);
-    WYN_MAP_VK(wyn_vk_NumpadPeriod,   XK_KP_Decimal);
+    WYN_MAP_VK(wyn_vk_NumpadDecimal,  XK_KP_Decimal);
     return &mapping;
 }
 

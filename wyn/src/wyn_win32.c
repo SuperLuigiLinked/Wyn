@@ -966,11 +966,11 @@ extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
         [wyn_vk_Numpad7]        = VK_NUMPAD0,
         [wyn_vk_Numpad8]        = VK_NUMPAD0,
         [wyn_vk_Numpad9]        = VK_NUMPAD0,
-        [wyn_vk_NumpadPlus]     = VK_ADD,
-        [wyn_vk_NumpadMinus]    = VK_SUBTRACT,
+        [wyn_vk_NumpadAdd]      = VK_ADD,
+        [wyn_vk_NumpadSubtract] = VK_SUBTRACT,
         [wyn_vk_NumpadMultiply] = VK_MULTIPLY,
         [wyn_vk_NumpadDivide]   = VK_DIVIDE,
-        [wyn_vk_NumpadPeriod]   = VK_DECIMAL,
+        [wyn_vk_NumpadDecimal]  = VK_DECIMAL,
     };
     return &mapping;
 }

@@ -218,6 +218,29 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [notification object];
     wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)ns_window);
 }
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsnotification/1414469-object?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419737-windowdidbecomekey?language=objc
+ */
+- (void)windowDidBecomeKey:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)ns_window, true);
+}
+
+/**
+ * @see Foundation:
+ * - https://developer.apple.com/documentation/foundation/nsnotification/1414469-object?language=objc
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nswindowdelegate/1419711-windowdidresignkey?language=objc
+ */
+- (void)windowDidResignKey:(NSNotification*)notification
+{
+    NSWindow* const ns_window = [notification object];
+    wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)ns_window, false);
+}
 
 /**
  * @see Foundation:
@@ -262,16 +285,8 @@ static void wyn_run_native(void)
 - (void)mouseMoved:(NSEvent*)event
 {
     NSWindow* const ns_window = [event window];
-    
-    NSPoint const global_point = [NSEvent mouseLocation];
-    NSRect const frame_rect = [ns_window frame];
-    NSRect const content_rect  = [ns_window contentRectForFrameRect:frame_rect];
-
-    if ([wyn_state.delegate mouse:global_point inRect:content_rect])
-    {
-        NSPoint const local_point = [event locationInWindow];
-        wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)local_point.x, (wyn_coord_t)local_point.y);
-    }
+    NSPoint const local_point = [event locationInWindow];
+    wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)local_point.x, (wyn_coord_t)local_point.y);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1527420-mousedragged?language=objc
@@ -301,7 +316,24 @@ static void wyn_run_native(void)
 // https://developer.apple.com/documentation/appkit/nsresponder/1527561-mouseexited?language=objc
 - (void)mouseExited:(NSEvent*)event
 {
-    // WYN_LOG("[WYN] mouseExited\n");
+    NSWindow* const ns_window = [event window];
+    wyn_on_cursor_exit(wyn_state.userdata, (wyn_window_t)ns_window);
+}
+
+// https://developer.apple.com/documentation/appkit/nsview/1483719-updatetrackingareas?language=objc
+- (void)updateTrackingAreas
+{
+    NSArray<NSTrackingArea*>* const areas = [self trackingAreas];
+
+    NSTrackingArea* track = areas.firstObject;
+    if (track)
+        [self removeTrackingArea:track];
+    else
+        track = [NSTrackingArea alloc];
+
+    [self addTrackingArea:[track initWithRect:[self bounds] options:(NSTrackingActiveAlways | NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved) owner:self userInfo:nil]];
+
+    [super updateTrackingAreas];
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1534192-scrollwheel?language=objc
@@ -484,7 +516,7 @@ extern wyn_window_t wyn_window_open(void)
     {
         [ns_window setDelegate:wyn_state.delegate];
         [ns_window setContentView:wyn_state.delegate];
-        [ns_window setAcceptsMouseMovedEvents:YES];
+        // [ns_window setAcceptsMouseMovedEvents:YES];
         [ns_window setInitialFirstResponder:wyn_state.delegate];
         const BOOL res = [ns_window makeFirstResponder:wyn_state.delegate];
         WYN_ASSERT(res == YES);
@@ -744,11 +776,11 @@ extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
         [wyn_vk_Numpad7]        = kVK_ANSI_Keypad7,
         [wyn_vk_Numpad8]        = kVK_ANSI_Keypad8,
         [wyn_vk_Numpad9]        = kVK_ANSI_Keypad9,
-        [wyn_vk_NumpadPlus]     = kVK_ANSI_KeypadPlus,
-        [wyn_vk_NumpadMinus]    = kVK_ANSI_KeypadMinus,
+        [wyn_vk_NumpadAdd]      = kVK_ANSI_KeypadPlus,
+        [wyn_vk_NumpadSubtract] = kVK_ANSI_KeypadMinus,
         [wyn_vk_NumpadMultiply] = kVK_ANSI_KeypadMultiply,
         [wyn_vk_NumpadDivide]   = kVK_ANSI_KeypadDivide,
-        [wyn_vk_NumpadPeriod]   = kVK_ANSI_KeypadDecimal,
+        [wyn_vk_NumpadDecimal]  = kVK_ANSI_KeypadDecimal,
     };
     return &mapping;
 }
