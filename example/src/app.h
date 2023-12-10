@@ -32,8 +32,13 @@ struct App
     wyt_time_t epoch;
     
     wyn_window_t window;
+    const wyn_vb_mapping_t* vb_mapping;
+    const wyn_vk_mapping_t* vk_mapping;
 
     uint64_t num_events;
+
+    wyn_rect_t saved_window;
+    bool fullscreen;
 };
 typedef struct App App;
 

@@ -33,6 +33,7 @@ target_compile_options(wyn_example
         "-Wno-gnu-empty-initializer"
         "-Wno-unused-macros"
         "-Wno-padded"
+        "-Wno-unsafe-buffer-usage"
 )
 
 # ================================================================================================================================

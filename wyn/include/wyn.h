@@ -202,7 +202,7 @@ extern void wyn_window_retitle(wyn_window_t window, const wyn_utf8_t* title);
  * @param[in] userdata [nullable] The user-provided pointer to pass to the callback function. 
  * @return The number of Displays that were enumerated.
  */
-extern unsigned wyn_enumerate_displays(wyn_display_callback callback, void* userdata);
+extern unsigned int wyn_enumerate_displays(wyn_display_callback callback, void* userdata);
 
 /**
  * @brief Queries the Position of a Display.

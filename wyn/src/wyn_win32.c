@@ -48,8 +48,10 @@
 #define WYN_MSG_CLASS L"Wyn-Msg"
 #define WYN_WND_CLASS L"Wyn-Wnd"
 #define WYN_CS_STYLE (CS_HREDRAW | CS_VREDRAW)
-#define WYN_EX_STYLE (0)
-#define WYN_WS_STYLE (WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+#define WYN_EX_STYLE_BORDERED (0)
+#define WYN_WS_STYLE_BORDERED (WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+#define WYN_EX_STYLE_BORDERLESS (0)
+#define WYN_WS_STYLE_BORDERLESS (WS_POPUP | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
 
 // ================================================================================================================================
 //  Private Declarations
@@ -69,6 +71,9 @@ struct wyn_win32_t
     ATOM wnd_atom; ///< Atom for regular Windows.
 
     DWORD tid_main; ///< Thread ID of the Main Thread.
+
+    WCHAR surrogates[2]; ///< Tracks Surrogate-Pairs. { [0] = High, [1] = Low }
+    HWND surrogate_hwnd; ///< Last HWND to receive a Surrogate.
 };
 
 /**
@@ -139,6 +144,8 @@ static bool wyn_reinit(void* const userdata)
         .msg_hwnd = NULL,
         .msg_atom = 0,
         .wnd_atom = 0,
+        .surrogates = { 0, 0 },
+        .surrogate_hwnd = NULL,
     };
     
     {
@@ -363,6 +370,22 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             return 0;
         }
 
+        // https://learn.microsoft.com/en-us/windows/win32/devio/wm-devicechange
+        case WM_DEVICECHANGE:
+        {
+            // WYN_LOG("[WYN] WM_DEVICECHANGE\n");
+            wyn_on_display_change(wyn_win32.userdata);
+            break;
+        }
+
+        // https://learn.microsoft.com/en-us/windows/win32/gdi/wm-devmodechange
+        case WM_DEVMODECHANGE:
+        {
+            // WYN_LOG("[WYN] WM_DEVMODECHANGE\n");
+            wyn_on_display_change(wyn_win32.userdata);
+            break;
+        }
+
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousemove
         case WM_MOUSEMOVE:
         {
@@ -528,52 +551,48 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-sysdeadchar
         case WM_SYSDEADCHAR:
         {
-            // { [0] = High, [1] = Low }
-            static WCHAR surrogates[2] = { 0, 0 };
-            static HWND surrogate_hwnd = 0;
-
             // ----------------------------------------------------------------
 
-            if ((surrogate_hwnd != 0) && (surrogate_hwnd != hwnd))
+            if ((wyn_win32.surrogate_hwnd != 0) && (wyn_win32.surrogate_hwnd != hwnd))
             {
-                surrogates[0] = 0;
-                surrogates[1] = 0;
-                surrogate_hwnd = 0;
+                wyn_win32.surrogates[0] = 0;
+                wyn_win32.surrogates[1] = 0;
+                wyn_win32.surrogate_hwnd = 0;
             }
 
             // ----------------------------------------------------------------
 
             if (IS_HIGH_SURROGATE(wparam))
             {
-                surrogates[0] = (WCHAR)wparam;
-                surrogate_hwnd = hwnd;
+                wyn_win32.surrogates[0] = (WCHAR)wparam;
+                wyn_win32.surrogate_hwnd = hwnd;
             }
             else if (IS_LOW_SURROGATE(wparam))
             {
-                surrogates[1] = (WCHAR)wparam;
-                surrogate_hwnd = hwnd;
+                wyn_win32.surrogates[1] = (WCHAR)wparam;
+                wyn_win32.surrogate_hwnd = hwnd;
             }
             else
             {
-                surrogates[0] = 0;
-                surrogates[1] = 0;
-                surrogate_hwnd = 0;
+                wyn_win32.surrogates[0] = 0;
+                wyn_win32.surrogates[1] = 0;
+                wyn_win32.surrogate_hwnd = 0;
             }
 
             // ----------------------------------------------------------------
 
-            if (surrogates[0] || surrogates[1])
+            if (wyn_win32.surrogates[0] || wyn_win32.surrogates[1])
             {
-                if (IS_SURROGATE_PAIR(surrogates[0], surrogates[1]))
+                if (IS_SURROGATE_PAIR(wyn_win32.surrogates[0], wyn_win32.surrogates[1]))
                 {
-                    wyn_convert_text(window, surrogates, 2);
+                    wyn_convert_text(window, wyn_win32.surrogates, 2);
                 }
 
-                if (surrogates[0] && surrogates[1])
+                if (wyn_win32.surrogates[0] && wyn_win32.surrogates[1])
                 {
-                    surrogates[0] = 0;
-                    surrogates[1] = 0;
-                    surrogate_hwnd = 0;
+                    wyn_win32.surrogates[0] = 0;
+                    wyn_win32.surrogates[1] = 0;
+                    wyn_win32.surrogate_hwnd = 0;
                 }
             }
             else
@@ -688,7 +707,7 @@ extern void wyn_signal(void)
 extern wyn_window_t wyn_window_open(void)
 {
     const HWND hwnd = CreateWindowExW(
-        WYN_EX_STYLE, WYN_WND_CLASS, L"", WYN_WS_STYLE,
+        WYN_EX_STYLE_BORDERED, WYN_WND_CLASS, L"", WYN_WS_STYLE_BORDERED,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, wyn_win32.hinstance, NULL
     );
@@ -818,6 +837,7 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
  * @see Win32:
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
+ * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
  */
@@ -829,18 +849,21 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
 
     const HWND hwnd = (HWND)window;
-
+    
     const UINT dpi = GetDpiForWindow(hwnd);
-    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
-    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    const BOOL visible = IsWindowVisible(hwnd);
+    const DWORD ws_style = (borderless ? WYN_WS_STYLE_BORDERLESS : WYN_WS_STYLE_BORDERED) | (visible ? WS_VISIBLE : 0);
+    const DWORD ex_style = borderless ? WYN_EX_STYLE_BORDERLESS : WYN_EX_STYLE_BORDERED;
 
     RECT rect = { .left = (LONG)rounded_x, .top = (LONG)rounded_y, .right = (LONG)(rounded_x + rounded_w), .bottom = (LONG)(rounded_y + rounded_h) };
     const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
     WYN_ASSERT(res_adj != 0);
 
+    [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, ws_style);
+    [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
     const BOOL res_set = SetWindowPos(
         hwnd, 0, (int)rect.left, (int)rect.top, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
-        (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
+        (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
     );
     WYN_ASSERT(res_set != 0);
 }
@@ -878,6 +901,62 @@ extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* cons
     }
 }
 
+// ================================================================================================================================
+
+struct wyn_win32_edm_data_t
+{
+    wyn_display_callback callback;
+    void* userdata;
+    unsigned counter;
+};
+typedef struct wyn_win32_edm_data_t wyn_win32_edm_data_t;
+
+// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-monitorenumproc
+static BOOL CALLBACK wyn_win32_edm_callback(HMONITOR const monitor, HDC const hdc [[maybe_unused]], LPRECT const rect [[maybe_unused]], LPARAM const lparam)
+{
+    wyn_win32_edm_data_t* const data = (wyn_win32_edm_data_t*)lparam;
+    WYN_ASSUME(data != NULL);
+
+    ++data->counter;
+
+    if (data->callback)
+    {
+        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
+        MONITORINFO info = { .cbSize = sizeof(MONITORINFO) };
+        const BOOL res_info = GetMonitorInfoW(monitor, &info);
+        WYN_ASSERT(res_info != 0);
+
+        const wyn_display_t display = (wyn_display_t)&info;
+        const wyn_bool_t res = data->callback(data->userdata, display);
+        return (BOOL)res;
+    }
+    else
+    {
+        return TRUE;
+    }
+}
+
+extern unsigned int wyn_enumerate_displays(wyn_display_callback callback, void* userdata)
+{
+    wyn_win32_edm_data_t const data = { .callback = callback, .userdata = userdata, .counter = 0 };
+
+    [[maybe_unused]] const BOOL res_edm = EnumDisplayMonitors(NULL, NULL, wyn_win32_edm_callback, (LPARAM)&data);
+    
+    return data.counter;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_rect_t wyn_display_position(wyn_display_t const display)
+{
+    const MONITORINFO* const info = (const MONITORINFO*)display;
+    WYN_ASSUME(info != NULL);
+
+    return (wyn_rect_t){
+        .origin = { .x = info->rcMonitor.left, .y = info->rcMonitor.top },
+        .extent = { .w = info->rcMonitor.right - info->rcMonitor.left, .h = info->rcMonitor.bottom - info->rcMonitor.top }
+    };
+}
 
 // ================================================================================================================================
 

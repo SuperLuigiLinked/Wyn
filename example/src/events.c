@@ -6,20 +6,41 @@
 
 // ================================================================================================================================
 
+static wyn_bool_t primary_display_callback(void* const userdata, wyn_display_t const display)
+{
+    ASSERT(userdata != 0);
+    *(wyn_rect_t*)userdata = wyn_display_position(display);
+    return false;
+}
+
+static wyn_rect_t primary_display(void)
+{
+    wyn_rect_t rect = {};
+    const unsigned display_count = wyn_enumerate_displays(primary_display_callback, &rect);
+    ASSERT(display_count == 1);
+
+    return rect;
+}
+
+// ================================================================================================================================
+
 static void app_reinit(App* const self)
 {
     self->epoch = wyt_nanotime();
+    self->vb_mapping = wyn_vb_mapping();
+    self->vk_mapping = wyn_vk_mapping();
+    self->fullscreen = false;
+
+    const wyn_rect_t monitor = primary_display();
+    const wyn_extent_t window_extent = { .w = 640.0, .h = 480.0 };
+    const wyn_point_t window_origin = { .x = monitor.origin.x + (monitor.extent.w - window_extent.w) / 2, .y = monitor.origin.y + (monitor.extent.h - window_extent.h) / 2 };
+    const wyn_utf8_t* const window_title = (const wyn_utf8_t*)u8"Wyn Example";
 
     self->window = wyn_window_open();
     ASSERT(self->window != 0);
 
-    const wyn_extent_t old_size = wyn_window_size(self->window);
-    const double scale = wyn_window_scale(self->window);
-    wyn_window_resize(self->window, (wyn_extent_t){ .w = 640.0 * scale, .h = 480.0 * scale });
-    const wyn_extent_t new_size = wyn_window_size(self->window);
-    LOG("[APP] (%.2f x %.2f) -> (%.2f x %.2f) [%.2f]\n", (double)old_size.w, (double)old_size.h, (double)new_size.w, (double)new_size.h, (double)scale);
-
-    wyn_window_retitle(self->window, (const wyn_utf8_t*)u8"Wyn Example");
+    wyn_window_reposition(self->window, &window_origin, &window_extent, false);
+    wyn_window_retitle(self->window, window_title);
     wyn_window_show(self->window);
 }
 
@@ -129,6 +150,24 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
     LOG("[EVENTS] (%"PRIu64") {%p} KEYBOARD | %d (%d)\n", ++self->num_events, (void*)window, (int)keycode, (int)pressed);
     if (window != self->window) return;
 
+    if (keycode == (*self->vk_mapping)[wyn_vk_Escape])
+    {
+        if (pressed)
+        {
+            self->fullscreen = !self->fullscreen;
+
+            if (self->fullscreen)
+            {
+                self->saved_window = wyn_window_position(self->window);
+                const wyn_rect_t monitor = primary_display();
+                wyn_window_reposition(self->window, &monitor.origin, &monitor.extent, true);
+            }
+            else
+            {
+                wyn_window_reposition(self->window, &self->saved_window.origin, &self->saved_window.extent, false);
+            }
+        }
+    }
 }
 
 extern void wyn_on_text(void* const userdata, wyn_window_t const window, const wyn_utf8_t* const text)
