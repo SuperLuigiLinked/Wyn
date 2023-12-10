@@ -17,7 +17,7 @@
 #ifndef WYN_H
 #define WYN_H
 
-#include <wvk.h>
+#include <wyc.h>
 
 // ================================================================================================================================
 //  Type Declarations
@@ -36,6 +36,19 @@
  * @brief Handle to a Window.
  */
 typedef void* wyn_window_t;
+
+/**
+ * @brief Handle to a Display.
+ */
+typedef void* wyn_display_t;
+
+/**
+ * @brief Callback function for enumerating displays.
+ * @param[in] userdata [nullable] Pointer specified when calling `wyn_enumerate_displays`.
+ * @param[in] display  [non-null] Handle to a Display. This handle is only valid during this callback, and no longer.
+ * @return `true` to continue iterating, `false` to stop iterating.
+ */
+typedef wyn_bool_t (*wyn_display_callback)(void* userdata, wyn_display_t display);
 
 /**
  * @brief Floating-point type for coordinates/extents/deltas.
@@ -164,13 +177,14 @@ extern void wyn_window_resize(wyn_window_t window, wyn_extent_t extent);
 extern wyn_rect_t wyn_window_position(wyn_window_t window);
 
 /**
- * @brief Queries the Position of a Window.
+ * @brief Sets the Position and Visual Style of a Window.
  * @param[in] window [non-null] A handle to the Window.
  * @param[in] origin [nullable] The content origin, in Screen Coordinates.
  * @param[in] extent [nullable] The content extent, in Screen Coordinates.
+ * @param     borderless `true` if Window should be Borderless, `false` otherwise.
  * @note If the origin/extent is NULL, the previous origin/extent is kept.
  */
-extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent);
+extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent, bool borderless);
 
 /**
  * @brief Sets the title of a Window.
@@ -178,6 +192,23 @@ extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin
  * @param[in] title  [nullable] A NULL-terminated UTF-8 encoded Text for the title, or NULL to reset the title.
  */
 extern void wyn_window_retitle(wyn_window_t window, const wyn_utf8_t* title);
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * @brief Iterates over the currently available list of Displays.
+ * @param[in] callback [nullable] The callback function to call for each Display.
+                                  If NULL, the number of Displays is still calculated.
+ * @param[in] userdata [nullable] The user-provided pointer to pass to the callback function. 
+ * @return The number of Displays that were enumerated.
+ */
+extern unsigned wyn_enumerate_displays(wyn_display_callback callback, void* userdata);
+
+/**
+ * @brief Queries the Position of a Display.
+ * @return The rectangle for the Display, in Screen Coordinates.
+ */
+extern wyn_rect_t wyn_display_position(wyn_display_t display);
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -260,6 +291,12 @@ extern void wyn_on_window_focus(void* userdata, wyn_window_t window, bool focuse
  * @param[in] scale    The new scale.
  */
 extern void wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale);
+
+/**
+ * @brief Called when the list of available Displays may have been changed.
+ * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
+ */
+extern void wyn_on_display_change(void* userdata);
 
 /**
  * @brief Called when a Cursor is moved across a Window.

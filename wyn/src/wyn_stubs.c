@@ -28,6 +28,9 @@ extern void __attribute__((weak)) wyn_on_window_focus(void* userdata, wyn_window
 extern void __attribute__((weak)) wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale)
 { (void)userdata; (void)window; (void)content; (void)scale; }
 
+extern void __attribute__((weak)) wyn_on_display_change(void* userdata)
+{ (void)userdata; }
+
 extern void __attribute__((weak)) wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t sx, wyn_coord_t sy)
 { (void)userdata; (void)window; (void)sx; (void)sy; }
 

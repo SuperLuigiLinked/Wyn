@@ -31,6 +31,12 @@
     #define WYN_ASSERT(expr) if (expr) {} else abort()
 #endif
 
+#ifdef NDEBUG
+    #define WYN_ASSUME(expr) ((void)0)
+#else
+    #define WYN_ASSUME(expr) WYN_ASSERT(expr)
+#endif
+
 /**
  * @see C:
  * - https://en.cppreference.com/w/c/io/fprintf
@@ -52,7 +58,7 @@
 /**
  * @brief Internal structure for holding Wyn state.
  */
-struct wyn_state_t
+struct wyn_win32_t
 {
     void* userdata; ///< The pointer provided by the user when the Event Loop was started.
     _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
@@ -68,7 +74,7 @@ struct wyn_state_t
 /**
  * @brief Static instance of all Wyn state.
  */
-static struct wyn_state_t wyn_state;
+static struct wyn_win32_t wyn_win32;
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -125,7 +131,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM 
  */
 static bool wyn_reinit(void* const userdata)
 {
-    wyn_state = (struct wyn_state_t){
+    wyn_win32 = (struct wyn_win32_t){
         .userdata = userdata,
         .quitting = false,
         .tid_main = 0,
@@ -136,12 +142,12 @@ static bool wyn_reinit(void* const userdata)
     };
     
     {
-        wyn_state.tid_main = GetCurrentThreadId();
+        wyn_win32.tid_main = GetCurrentThreadId();
     }
     
     {
-        wyn_state.hinstance = GetModuleHandleW(NULL);
-        if (wyn_state.hinstance == 0) return false;
+        wyn_win32.hinstance = GetModuleHandleW(NULL);
+        if (wyn_win32.hinstance == 0) return false;
     }
 
     {
@@ -154,7 +160,7 @@ static bool wyn_reinit(void* const userdata)
             .lpfnWndProc = wyn_wndproc,
             .cbClsExtra = 0,
             .cbWndExtra = 0,
-            .hInstance = wyn_state.hinstance,
+            .hInstance = wyn_win32.hinstance,
             .hIcon = icon,
             .hCursor = cursor,
             .hbrBackground = NULL,
@@ -162,8 +168,8 @@ static bool wyn_reinit(void* const userdata)
             .lpszClassName = WYN_WND_CLASS,
             .hIconSm = NULL,
         };
-        wyn_state.wnd_atom = RegisterClassExW(&wnd_class);
-        if (wyn_state.wnd_atom == 0) return false;
+        wyn_win32.wnd_atom = RegisterClassExW(&wnd_class);
+        if (wyn_win32.wnd_atom == 0) return false;
     }
 
     {
@@ -173,7 +179,7 @@ static bool wyn_reinit(void* const userdata)
             .lpfnWndProc = wyn_msgproc,
             .cbClsExtra = 0,
             .cbWndExtra = 0,
-            .hInstance = wyn_state.hinstance,
+            .hInstance = wyn_win32.hinstance,
             .hIcon = NULL,
             .hCursor = NULL,
             .hbrBackground = NULL,
@@ -181,17 +187,17 @@ static bool wyn_reinit(void* const userdata)
             .lpszClassName = WYN_MSG_CLASS,
             .hIconSm = NULL,
         };
-        wyn_state.msg_atom = RegisterClassExW(&msg_class);
-        if (wyn_state.msg_atom == 0) return false;
+        wyn_win32.msg_atom = RegisterClassExW(&msg_class);
+        if (wyn_win32.msg_atom == 0) return false;
     }
 
     {
-        wyn_state.msg_hwnd = CreateWindowExW(
+        wyn_win32.msg_hwnd = CreateWindowExW(
             0, WYN_MSG_CLASS, L"", 0,
             0, 0, 0, 0,
-            HWND_MESSAGE, NULL, wyn_state.hinstance, NULL
+            HWND_MESSAGE, NULL, wyn_win32.hinstance, NULL
         );
-        if (wyn_state.msg_hwnd == NULL) return false;
+        if (wyn_win32.msg_hwnd == NULL) return false;
     }
 
     return true;
@@ -208,19 +214,19 @@ static void wyn_deinit(void)
 {
     wyn_destroy_windows();
 
-    if (wyn_state.msg_hwnd != NULL)
+    if (wyn_win32.msg_hwnd != NULL)
     {
-        [[maybe_unused]] const BOOL res = DestroyWindow(wyn_state.msg_hwnd);
+        [[maybe_unused]] const BOOL res = DestroyWindow(wyn_win32.msg_hwnd);
     }
 
-    if (wyn_state.msg_atom != 0)
+    if (wyn_win32.msg_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_MSG_CLASS, wyn_state.hinstance);
+        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_MSG_CLASS, wyn_win32.hinstance);
     }
 
-    if (wyn_state.wnd_atom != 0)
+    if (wyn_win32.wnd_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_WND_CLASS, wyn_state.hinstance);
+        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_WND_CLASS, wyn_win32.hinstance);
     }
 }
 
@@ -232,7 +238,7 @@ static void wyn_deinit(void)
  */
 static void wyn_destroy_windows(void)
 {
-    [[maybe_unused]] const BOOL res = EnumThreadWindows(wyn_state.tid_main, wyn_destroy_windows_callback, 0);
+    [[maybe_unused]] const BOOL res = EnumThreadWindows(wyn_win32.tid_main, wyn_destroy_windows_callback, 0);
 }
 
 /**
@@ -283,7 +289,7 @@ static void wyn_convert_text(wyn_window_t const window, const WCHAR* src_chr, co
     dst_chr[dst_len] = '\0';
 
     if (dst_len > 0)
-        wyn_on_text(wyn_state.userdata, window, (const wyn_utf8_t*)dst_chr);
+        wyn_on_text(wyn_win32.userdata, window, (const wyn_utf8_t*)dst_chr);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -310,7 +316,7 @@ static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM con
 
         case WM_APP:
         {
-            wyn_on_signal(wyn_state.userdata);
+            wyn_on_signal(wyn_win32.userdata);
             break;
         }
     }
@@ -332,28 +338,28 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
         case WM_CLOSE:
         {
-            wyn_on_window_close(wyn_state.userdata, window);
+            wyn_on_window_close(wyn_win32.userdata, window);
             return 0;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint
         case WM_PAINT:
         {
-            wyn_on_window_redraw(wyn_state.userdata, window);
+            wyn_on_window_redraw(wyn_win32.userdata, window);
             break; //return 0;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-activate
         case WM_ACTIVATE:
         {
-            wyn_on_window_focus(wyn_state.userdata, window, wparam != WA_INACTIVE);
+            wyn_on_window_focus(wyn_win32.userdata, window, wparam != WA_INACTIVE);
             break;
         }
 
         // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
         case WM_WINDOWPOSCHANGED:
         {
-            wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
+            wyn_on_window_reposition(wyn_win32.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
             return 0;
         }
 
@@ -362,7 +368,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         {
             const int xpos = GET_X_LPARAM(lparam);
             const int ypos = GET_Y_LPARAM(lparam);
-            wyn_on_cursor(wyn_state.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
+            wyn_on_cursor(wyn_win32.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
 
             TRACKMOUSEEVENT track = {
                 .cbSize = sizeof(TRACKMOUSEEVENT),
@@ -385,7 +391,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
         case WM_MOUSELEAVE:
         {
-            wyn_on_cursor_exit(wyn_state.userdata, window);
+            wyn_on_cursor_exit(wyn_win32.userdata, window);
             break;
         }
 
@@ -397,7 +403,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
             const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
             const double norm = (double)delta / (double)WHEEL_DELTA;
-            wyn_on_scroll(wyn_state.userdata, window, 0.0, norm);
+            wyn_on_scroll(wyn_win32.userdata, window, 0.0, norm);
             return 0;
         }
 
@@ -409,7 +415,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
             const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
             const double norm = (double)delta / (double)WHEEL_DELTA;
-            wyn_on_scroll(wyn_state.userdata, window, norm, 0.0);
+            wyn_on_scroll(wyn_win32.userdata, window, norm, 0.0);
             return 0;
         }
 
@@ -421,7 +427,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_LBUTTON, true);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_LBUTTON, true);
             return 0;
         }
 
@@ -433,7 +439,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_RBUTTON, true);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_RBUTTON, true);
             return 0;
         }
 
@@ -445,7 +451,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_MBUTTON, true);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_MBUTTON, true);
             return 0;
         }
 
@@ -458,8 +464,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
             const WORD button = GET_XBUTTON_WPARAM(wparam);
-            if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, true);
-            if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, true);
+            if (button == XBUTTON1) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON1, true);
+            if (button == XBUTTON2) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON2, true);
             return 0;
         }
 
@@ -471,7 +477,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_LBUTTON, false);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_LBUTTON, false);
             return 0;
         }
 
@@ -483,7 +489,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_RBUTTON, false);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_RBUTTON, false);
             return 0;
         }
 
@@ -495,7 +501,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_MBUTTON, false);
+            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_MBUTTON, false);
             return 0;
         }
 
@@ -508,8 +514,8 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
             [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
             [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
             const WORD button = GET_XBUTTON_WPARAM(wparam);
-            if (button == XBUTTON1) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON1, false);
-            if (button == XBUTTON2) wyn_on_mouse(wyn_state.userdata, window, (wyn_button_t)MK_XBUTTON2, false);
+            if (button == XBUTTON1) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON1, false);
+            if (button == XBUTTON2) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON2, false);
             return 0;
         }
 
@@ -586,7 +592,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown
         case WM_SYSKEYDOWN:
         {
-            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, true);
+            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, true);
             return 0;
         }
 
@@ -595,7 +601,7 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
         // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeyup
         case WM_SYSKEYUP:
         {
-            wyn_on_keyboard(wyn_state.userdata, window, (wyn_keycode_t)wparam, false);
+            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, false);
             return 0;
         }
 
@@ -635,7 +641,7 @@ extern void wyn_run(void* const userdata)
  */
 extern void wyn_quit(void)
 {
-    atomic_store_explicit(&wyn_state.quitting, true, memory_order_relaxed);
+    atomic_store_explicit(&wyn_win32.quitting, true, memory_order_relaxed);
     PostQuitMessage(0);
 }
 
@@ -647,7 +653,7 @@ extern void wyn_quit(void)
  */
 extern wyn_bool_t wyn_quitting(void)
 {
-    return (wyn_bool_t)atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return (wyn_bool_t)atomic_load_explicit(&wyn_win32.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -658,7 +664,7 @@ extern wyn_bool_t wyn_quitting(void)
  */
 extern wyn_bool_t wyn_is_this_thread(void)
 {
-    return (wyn_bool_t)(GetCurrentThreadId() == wyn_state.tid_main);
+    return (wyn_bool_t)(GetCurrentThreadId() == wyn_win32.tid_main);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -669,7 +675,7 @@ extern wyn_bool_t wyn_is_this_thread(void)
  */
 extern void wyn_signal(void)
 {
-    const BOOL res = PostMessageW(wyn_state.msg_hwnd, WM_APP, 0, 0);
+    const BOOL res = PostMessageW(wyn_win32.msg_hwnd, WM_APP, 0, 0);
     WYN_ASSERT(res != 0);
 }
 
@@ -684,7 +690,7 @@ extern wyn_window_t wyn_window_open(void)
     const HWND hwnd = CreateWindowExW(
         WYN_EX_STYLE, WYN_WND_CLASS, L"", WYN_WS_STYLE,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-        NULL, NULL, wyn_state.hinstance, NULL
+        NULL, NULL, wyn_win32.hinstance, NULL
     );
 
     return (wyn_window_t)hwnd;
@@ -815,7 +821,7 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
  */
-extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent, bool const borderless)
 {
     const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
     const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
@@ -878,7 +884,7 @@ extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* cons
 extern void* wyn_native_context(wyn_window_t const window)
 {
     (void)window;
-    return wyn_state.hinstance;
+    return wyn_win32.hinstance;
 }
 
 // ================================================================================================================================

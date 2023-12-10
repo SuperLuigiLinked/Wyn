@@ -13,7 +13,7 @@ Currently supports Windows, Linux, and MacOS, compiled with Clang + CMake.
 Windowing library.
 #### Backends:
 * **Windows**: Win32
-* **Linux**: Xlib, Xcb, Xlib-Xcb (Wayland support planned)
+* **Linux**: Xlib
 * **MacOS**: Cocoa
 
 ## Wyt
@@ -21,6 +21,6 @@ Threading/Timing library.
 #### Backends:
 * **Windows**: Win32
 * **Linux**: Pthreads
-* **MacOS**: Pthreads
+* **MacOS**: Pthreads (+ GCD)
 
 ---

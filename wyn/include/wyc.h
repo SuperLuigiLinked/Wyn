@@ -1,13 +1,13 @@
 /**
- * @file wvk.h
+ * @file wyc.h
  *
- * @brief Utilities for interpreting Mouse-Buttons/Key-Codes.
+ * @brief Utilities for handling Mouse, Keyboard, and Gamepad inputs.
  */
 
 #pragma once
 
-#ifndef WVK_H
-#define WVK_H
+#ifndef WYC_H
+#define WYC_H
 
 // ================================================================================================================================
 //  Type Declarations

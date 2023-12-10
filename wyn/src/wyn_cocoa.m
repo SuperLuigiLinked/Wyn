@@ -22,6 +22,12 @@
  */
 #define WYN_ASSERT(expr) if (expr) {} else abort()
 
+#ifdef NDEBUG
+    #define WYN_ASSUME(expr) ((void)0)
+#else
+    #define WYN_ASSUME(expr) WYN_ASSERT(expr)
+#endif
+
 /**
  * @see C:
  * - https://en.cppreference.com/w/c/io/fprintf
@@ -49,7 +55,7 @@
 /**
  * @brief Internal structure for holding Wyn state.
  */
-struct wyn_state_t 
+struct wyn_cocoa_t 
 {
     void* userdata; ///< The pointer provided by the user when the Event Loop was started.
     _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
@@ -60,7 +66,7 @@ struct wyn_state_t
 /**
  * @brief Static instance of all Wyn state.
  */
-static struct wyn_state_t wyn_state;
+static struct wyn_cocoa_t wyn_cocoa;
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -108,7 +114,7 @@ static void wyn_run_native(void);
  */
 static bool wyn_reinit(void* userdata)
 {
-    wyn_state = (struct wyn_state_t){
+    wyn_cocoa = (struct wyn_cocoa_t){
         .userdata = userdata,
         .quitting = false,
         .delegate = NULL,
@@ -117,9 +123,9 @@ static bool wyn_reinit(void* userdata)
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
-    wyn_state.delegate = [[wyn_delegate_t new] autorelease];
-    if (wyn_state.delegate == NULL) return false;
-    [NSApp setDelegate:wyn_state.delegate];
+    wyn_cocoa.delegate = [[wyn_delegate_t new] autorelease];
+    if (wyn_cocoa.delegate == NULL) return false;
+    [NSApp setDelegate:wyn_cocoa.delegate];
 
     return true;
 }
@@ -205,7 +211,7 @@ static void wyn_run_native(void)
  */
 - (BOOL)windowShouldClose:(NSWindow*)sender
 {
-    wyn_on_window_close(wyn_state.userdata, (wyn_window_t)sender);
+    wyn_on_window_close(wyn_cocoa.userdata, (wyn_window_t)sender);
     return FALSE;
 }
 
@@ -216,7 +222,7 @@ static void wyn_run_native(void)
 - (void)windowDidExpose:(NSNotification*)notification
 {
     NSWindow* const ns_window = [notification object];
-    wyn_on_window_redraw(wyn_state.userdata, (wyn_window_t)ns_window);
+    wyn_on_window_redraw(wyn_cocoa.userdata, (wyn_window_t)ns_window);
 }
 /**
  * @see Foundation:
@@ -227,7 +233,7 @@ static void wyn_run_native(void)
 - (void)windowDidBecomeKey:(NSNotification*)notification
 {
     NSWindow* const ns_window = [notification object];
-    wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)ns_window, true);
+    wyn_on_window_focus(wyn_cocoa.userdata, (wyn_window_t)ns_window, true);
 }
 
 /**
@@ -239,7 +245,7 @@ static void wyn_run_native(void)
 - (void)windowDidResignKey:(NSNotification*)notification
 {
     NSWindow* const ns_window = [notification object];
-    wyn_on_window_focus(wyn_state.userdata, (wyn_window_t)ns_window, false);
+    wyn_on_window_focus(wyn_cocoa.userdata, (wyn_window_t)ns_window, false);
 }
 
 /**
@@ -252,7 +258,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [notification object];
     wyn_window_t const window = (wyn_window_t)ns_window;
-    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
+    wyn_on_window_reposition(wyn_cocoa.userdata, window, wyn_window_position(window), wyn_window_scale(window));
 }
 
 /**
@@ -265,7 +271,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [notification object];
     wyn_window_t const window = (wyn_window_t)ns_window;
-    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
+    wyn_on_window_reposition(wyn_cocoa.userdata, window, wyn_window_position(window), wyn_window_scale(window));
 }
 
 /**
@@ -278,7 +284,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [notification object];
     wyn_window_t const window = (wyn_window_t)ns_window;
-    wyn_on_window_reposition(wyn_state.userdata, window, wyn_window_position(window), wyn_window_scale(window));
+    wyn_on_window_reposition(wyn_cocoa.userdata, window, wyn_window_position(window), wyn_window_scale(window));
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1525114-mousemoved?language=objc
@@ -286,7 +292,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [event window];
     NSPoint const local_point = [event locationInWindow];
-    wyn_on_cursor(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)local_point.x, (wyn_coord_t)local_point.y);
+    wyn_on_cursor(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_coord_t)local_point.x, (wyn_coord_t)local_point.y);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1527420-mousedragged?language=objc
@@ -317,7 +323,7 @@ static void wyn_run_native(void)
 - (void)mouseExited:(NSEvent*)event
 {
     NSWindow* const ns_window = [event window];
-    wyn_on_cursor_exit(wyn_state.userdata, (wyn_window_t)ns_window);
+    wyn_on_cursor_exit(wyn_cocoa.userdata, (wyn_window_t)ns_window);
 }
 
 // https://developer.apple.com/documentation/appkit/nsview/1483719-updatetrackingareas?language=objc
@@ -342,7 +348,7 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
     CGFloat const dx = [event scrollingDeltaX];
     CGFloat const dy = [event scrollingDeltaY];
-    wyn_on_scroll(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_coord_t)dx, (wyn_coord_t)dy);
+    wyn_on_scroll(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_coord_t)dx, (wyn_coord_t)dy);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1524634-mousedown?language=objc
@@ -350,7 +356,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [event window];
     NSInteger const ns_button = [event buttonNumber];
-    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)true);
+    wyn_on_mouse(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)true);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1524727-rightmousedown?language=objc
@@ -370,7 +376,7 @@ static void wyn_run_native(void)
 {
     NSWindow* const ns_window = [event window];
     NSInteger const ns_button = [event buttonNumber];
-    wyn_on_mouse(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)false);
+    wyn_on_mouse(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_button_t)ns_button, (wyn_bool_t)false);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1526309-rightmouseup?language=objc
@@ -391,14 +397,14 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
 
     unsigned short keycode = [event keyCode];
-    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)true);
+    wyn_on_keyboard(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)true);
 
     NSString* const ns_string = [event characters];
     const char* const text = [ns_string UTF8String];
     const size_t text_len = strlen(text);
     
     if (text_len > 0)
-        wyn_on_text(wyn_state.userdata, (wyn_window_t)ns_window, (const wyn_utf8_t*)text);
+        wyn_on_text(wyn_cocoa.userdata, (wyn_window_t)ns_window, (const wyn_utf8_t*)text);
 }
 
 // https://developer.apple.com/documentation/appkit/nsresponder/1527436-keyup?language=objc
@@ -407,7 +413,7 @@ static void wyn_run_native(void)
     NSWindow* const ns_window = [event window];
 
     unsigned short keycode = [event keyCode];
-    wyn_on_keyboard(wyn_state.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)false);
+    wyn_on_keyboard(wyn_cocoa.userdata, (wyn_window_t)ns_window, (wyn_keycode_t)keycode, (wyn_bool_t)false);
 }
 
 @end
@@ -447,7 +453,7 @@ extern void wyn_run(void* const userdata)
  */
 extern void wyn_quit(void)
 {
-    const bool was_quitting = atomic_exchange_explicit(&wyn_state.quitting, true, memory_order_relaxed);
+    const bool was_quitting = atomic_exchange_explicit(&wyn_cocoa.quitting, true, memory_order_relaxed);
 
     if (!was_quitting && [NSApp isRunning])
     {
@@ -465,7 +471,7 @@ extern void wyn_quit(void)
  */
 extern wyn_bool_t wyn_quitting(void)
 {
-    return (wyn_bool_t)atomic_load_explicit(&wyn_state.quitting, memory_order_relaxed);
+    return (wyn_bool_t)atomic_load_explicit(&wyn_cocoa.quitting, memory_order_relaxed);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -489,7 +495,7 @@ extern wyn_bool_t wyn_is_this_thread(void)
 extern void wyn_signal(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        wyn_on_signal(wyn_state.userdata);
+        wyn_on_signal(wyn_cocoa.userdata);
     });
 }
 
@@ -514,11 +520,11 @@ extern wyn_window_t wyn_window_open(void)
     NSWindow* const ns_window = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
     if (ns_window)
     {
-        [ns_window setDelegate:wyn_state.delegate];
-        [ns_window setContentView:wyn_state.delegate];
+        [ns_window setDelegate:wyn_cocoa.delegate];
+        [ns_window setContentView:wyn_cocoa.delegate];
         // [ns_window setAcceptsMouseMovedEvents:YES];
-        [ns_window setInitialFirstResponder:wyn_state.delegate];
-        const BOOL res = [ns_window makeFirstResponder:wyn_state.delegate];
+        [ns_window setInitialFirstResponder:wyn_cocoa.delegate];
+        const BOOL res = [ns_window makeFirstResponder:wyn_cocoa.delegate];
         WYN_ASSERT(res == YES);
 
         [ns_window center];
@@ -623,7 +629,7 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent, bool const borderless)
 {
     NSWindow* const ns_window = (NSWindow*)window;
     NSRect const old_frame = [ns_window frame];
