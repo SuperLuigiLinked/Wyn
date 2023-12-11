@@ -21,6 +21,7 @@
 #include <sys/eventfd.h>
 
 #include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 #include <X11/extensions/Xrandr.h>
@@ -57,6 +58,11 @@
 enum wyn_atom_t {
     wyn_atom_WM_PROTOCOLS,
     wyn_atom_WM_DELETE_WINDOW,
+    wyn_atom_NET_WM_STATE,
+    wyn_atom_NET_WM_STATE_ADD,
+    wyn_atom_NET_WM_STATE_REMOVE,
+    wyn_atom_NET_WM_STATE_TOGGLE,
+    wyn_atom_NET_WM_STATE_FULLSCREEN,
     wyn_atom_len,
 };
 typedef enum wyn_atom_t wyn_atom_t;
@@ -67,6 +73,11 @@ typedef enum wyn_atom_t wyn_atom_t;
 static const char* const wyn_atom_names[wyn_atom_len] = {
     [wyn_atom_WM_PROTOCOLS] = "WM_PROTOCOLS",
     [wyn_atom_WM_DELETE_WINDOW] = "WM_DELETE_WINDOW",
+    [wyn_atom_NET_WM_STATE] = "_NET_WM_STATE",
+    [wyn_atom_NET_WM_STATE_ADD] = "_NET_WM_STATE_ADD",
+    [wyn_atom_NET_WM_STATE_REMOVE] = "_NET_WM_STATE_REMOVE",
+    [wyn_atom_NET_WM_STATE_TOGGLE] = "_NET_WM_STATE_TOGGLE",
+    [wyn_atom_NET_WM_STATE_FULLSCREEN] = "_NET_WM_STATE_FULLSCREEN",
 };
 
 /**
@@ -82,9 +93,12 @@ struct wyn_xlib_t
     int x11_fd; ///< File Descriptor for the X11 Connection.
     int evt_fd; ///< File Descriptor for the Event Signaler.
 
-    Display* xlib_display; ///< The Xlib Connection to the X Window System.
+    Display* display; ///< The Xlib Connection to the X Window System.
 
     XIM xim; ///< X Input Manager
+    
+    int xrr_event_base;
+    int xrr_error_base;
 
     Atom atoms[wyn_atom_len]; ///< List of cached X Atoms.
 };
@@ -168,37 +182,52 @@ static bool wyn_reinit(void* userdata)
         .tid_main = 0,
         .x11_fd = -1,
         .evt_fd = -1,
-        .xlib_display = NULL,
+        .display = NULL,
         .xim = NULL,
+        .xrr_event_base = 0,
+        .xrr_error_base = 0,
         .atoms = {},
     };
     {
         wyn_xlib.tid_main = gettid();
     }
     {
-        wyn_xlib.xlib_display = XOpenDisplay(0);
-        if (wyn_xlib.xlib_display == 0) return false;
+        wyn_xlib.display = XOpenDisplay(0);
+        if (wyn_xlib.display == 0) return false;
     }
     {
         [[maybe_unused]] const XErrorHandler prev_error = XSetErrorHandler(wyn_xlib_error_handler);
         [[maybe_unused]] const XIOErrorHandler prev_io_error = XSetIOErrorHandler(wyn_xlib_io_error_handler);
-        XSetIOErrorExitHandler(wyn_xlib.xlib_display, wyn_xlib_io_error_exit_handler, NULL);
+        XSetIOErrorExitHandler(wyn_xlib.display, wyn_xlib_io_error_exit_handler, NULL);
     }
     {        
-        wyn_xlib.x11_fd = ConnectionNumber(wyn_xlib.xlib_display);
+        wyn_xlib.x11_fd = ConnectionNumber(wyn_xlib.display);
         if (wyn_xlib.x11_fd == -1) return false;
 
         wyn_xlib.evt_fd = eventfd(0, EFD_SEMAPHORE);
         if (wyn_xlib.evt_fd == -1) return false;
     }
     {
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
+        const Status res_atoms = XInternAtoms(wyn_xlib.display, wyn_atom_names, wyn_atom_len, true, wyn_xlib.atoms);
+        #pragma GCC diagnostic pop
+        WYN_ASSERT(res_atoms != 0);
+    }
+    {
         // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
-        wyn_xlib.xim = XOpenIM(wyn_xlib.xlib_display, NULL, NULL, NULL);
+        wyn_xlib.xim = XOpenIM(wyn_xlib.display, NULL, NULL, NULL);
         if (wyn_xlib.xim == 0) return false;
 
         // https://linux.die.net/man/3/xkbsetdetectableautorepeat
-        Bool res_repeat = XkbSetDetectableAutoRepeat(wyn_xlib.xlib_display, true, NULL);
+        Bool res_repeat = XkbSetDetectableAutoRepeat(wyn_xlib.display, true, NULL);
         (void)res_repeat;
+    }
+    {
+        const Bool res_query = XRRQueryExtension(wyn_xlib.display, &wyn_xlib.xrr_event_base, &wyn_xlib.xrr_error_base);
+        WYN_ASSERT(res_query == 1);
+
+        XRRSelectInput(wyn_xlib.display, DefaultRootWindow(wyn_xlib.display), RRScreenChangeNotifyMask);
     }
     return true;
 }
@@ -218,9 +247,9 @@ static void wyn_deinit(void)
         // https://www.x.org/releases/X11R7.5/doc/man/man3/XOpenIM.3.html
         [[maybe_unused]] const int res = XCloseIM(wyn_xlib.xim);
     }
-    if (wyn_xlib.xlib_display != NULL)
+    if (wyn_xlib.display != NULL)
     {
-        [[maybe_unused]] const int res = XCloseDisplay(wyn_xlib.xlib_display);
+        [[maybe_unused]] const int res = XCloseDisplay(wyn_xlib.display);
     }
 }
 
@@ -234,7 +263,7 @@ static void wyn_deinit(void)
  */
 static void wyn_run_native(void)
 {
-    (void)XFlush(wyn_xlib.xlib_display);
+    (void)XFlush(wyn_xlib.display);
 
     while (!wyn_quitting())
     {
@@ -278,17 +307,17 @@ static void wyn_run_native(void)
  */
 static void wyn_dispatch_x11(bool const sync)
 {
-    #define WYN_EVT_LOG(...) // WYN_LOG(__VA_ARGS__)
+    #define WYN_EVT_LOG(...) WYN_LOG(__VA_ARGS__)
 
     if (sync)
     {
-        [[maybe_unused]] const int res = XSync(wyn_xlib.xlib_display, False);
+        [[maybe_unused]] const int res = XSync(wyn_xlib.display, False);
     }
 
-    while (XPending(wyn_xlib.xlib_display) > 0)
+    while (XPending(wyn_xlib.display) > 0)
     {       
         XEvent event;
-        (void)XNextEvent(wyn_xlib.xlib_display, &event);
+        (void)XNextEvent(wyn_xlib.display, &event);
 
         WYN_EVT_LOG("[X-EVENT] (%2d) %s\n", event.type, wyn_xevent_name(event.type));
 
@@ -439,7 +468,7 @@ static void wyn_dispatch_x11(bool const sync)
                 wyn_on_keyboard(wyn_xlib.userdata, (wyn_window_t)xevt->window, (wyn_keycode_t)xevt->keycode, true);
                 // {
                 //     const KeyCode keycode = (KeyCode)xevt->keycode;
-                //     const KeySym keysym = XKeycodeToKeysym(wyn_xlib.xlib_display, keycode, 0);
+                //     const KeySym keysym = XKeycodeToKeysym(wyn_xlib.display, keycode, 0);
                 //     WYN_LOG("[WYN] %u -> %u\n", (unsigned)keycode, (unsigned)keysym);
                 // }
                 {
@@ -481,6 +510,29 @@ static void wyn_dispatch_x11(bool const sync)
                 const XKeyReleasedEvent* const xevt = &event.xkey;
                 wyn_on_keyboard(wyn_xlib.userdata, (wyn_window_t)xevt->window, (wyn_keycode_t)xevt->keycode, false);
                 break;
+            }
+
+            default:
+            {
+                const int xrr_evt = event.type - wyn_xlib.xrr_event_base;
+                if ((unsigned)xrr_evt < RRNumberEvents)
+                {
+                    switch (xrr_evt)
+                    {
+                        case RRScreenChangeNotify:
+                        {
+                            // [[maybe_unused]] const XRRScreenChangeNotifyEvent* const xevt = (const XRRScreenChangeNotifyEvent*)&event;
+                            wyn_on_display_change(wyn_xlib.userdata);
+                            break;
+                        }
+                        
+                        // case RRNotify:
+                        // {
+                        //     const XRRNotifyEvent* const xevt = (const XRRNotifyEvent*)&event;
+                        //     break;
+                        // }
+                    }
+                }
             }
         }
     }
@@ -540,7 +592,20 @@ static const char* wyn_xevent_name(const int type)
         case ClientMessage:    return "ClientMessage";
         case MappingNotify:    return "MappingNotify";
         case GenericEvent:     return "GenericEvent";
-        default:               return "<?>";
+        default:
+            {
+                const int xrr_evt = type - wyn_xlib.xrr_event_base;
+                if ((unsigned)xrr_evt < RRNumberEvents)
+                {
+                    switch (xrr_evt)
+                    {
+                    case RRScreenChangeNotify: return "RRScreenChangeNotify";
+                    case RRNotify:             return "RRNotify";
+                    default:                   return "RR-Event <?>";
+                    }
+                }
+            }
+            return "<?>";
     }
 }
 
@@ -651,7 +716,7 @@ extern void wyn_signal(void)
  */
 extern wyn_window_t wyn_window_open(void)
 {
-    Screen* const screen = DefaultScreenOfDisplay(wyn_xlib.xlib_display);
+    Screen* const screen = DefaultScreenOfDisplay(wyn_xlib.display);
     const Window root = RootWindowOfScreen(screen);
 
     const unsigned long mask = CWEventMask;
@@ -675,7 +740,7 @@ extern wyn_window_t wyn_window_open(void)
     };
 
     const Window x11_window = XCreateWindow(
-        wyn_xlib.xlib_display, root,
+        wyn_xlib.display, root,
         0, 0, 640, 480,
         0, CopyFromParent, InputOutput, CopyFromParent,
         mask, &attr
@@ -683,14 +748,10 @@ extern wyn_window_t wyn_window_open(void)
 
     if (x11_window != 0)
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
-        const Status res_atoms = XInternAtoms(wyn_xlib.xlib_display, wyn_atom_names, wyn_atom_len, true, wyn_xlib.atoms);
-        #pragma GCC diagnostic pop
-        WYN_ASSERT(res_atoms != 0);
-
-        const Status res_proto = XSetWMProtocols(wyn_xlib.xlib_display, x11_window, wyn_xlib.atoms, wyn_atom_len);
+        const Status res_proto = XSetWMProtocols(wyn_xlib.display, x11_window, wyn_xlib.atoms, wyn_atom_len);
         WYN_ASSERT(res_proto != 0);
+
+        // [[maybe_unused]] const int res_clr = XSetWindowBackground(wyn_xlib.display, x11_window, BlackPixel(wyn_xlib.display, DefaultScreen(wyn_xlib.display)));
     }
 
     return (wyn_window_t)x11_window;
@@ -705,7 +766,7 @@ extern wyn_window_t wyn_window_open(void)
 extern void wyn_window_close(wyn_window_t const window)
 {
     const Window x11_window = (Window)window;
-    [[maybe_unused]] const int res = XDestroyWindow(wyn_xlib.xlib_display, x11_window);
+    [[maybe_unused]] const int res = XDestroyWindow(wyn_xlib.display, x11_window);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -717,7 +778,7 @@ extern void wyn_window_close(wyn_window_t const window)
 extern void wyn_window_show(wyn_window_t const window)
 {
     const Window x11_window = (Window)window;
-    [[maybe_unused]] const int res = XMapRaised(wyn_xlib.xlib_display, x11_window);
+    [[maybe_unused]] const int res = XMapRaised(wyn_xlib.display, x11_window);
     wyn_dispatch_x11(true);
 }
 
@@ -730,7 +791,7 @@ extern void wyn_window_show(wyn_window_t const window)
 extern void wyn_window_hide(wyn_window_t const window)
 {
     const Window x11_window = (Window)window;
-    [[maybe_unused]] const int res = XUnmapWindow(wyn_xlib.xlib_display, x11_window);
+    [[maybe_unused]] const int res = XUnmapWindow(wyn_xlib.display, x11_window);
     wyn_dispatch_x11(true);
 }
 
@@ -753,7 +814,7 @@ extern wyn_extent_t wyn_window_size(wyn_window_t const window)
     const Window x11_window = (Window)window;
     
     XWindowAttributes attr;
-    const Status res = XGetWindowAttributes(wyn_xlib.xlib_display, x11_window, &attr);
+    const Status res = XGetWindowAttributes(wyn_xlib.display, x11_window, &attr);
     WYN_ASSERT(res != 0);
     
     return (wyn_extent_t){ .w = (wyn_coord_t)(attr.width), .h = (wyn_coord_t)(attr.height) };
@@ -771,7 +832,7 @@ extern void wyn_window_resize(wyn_window_t const window, wyn_extent_t const size
     const wyn_coord_t rounded_w = ceil(size.w);
     const wyn_coord_t rounded_h = ceil(size.h);
 
-    [[maybe_unused]] const int res = XResizeWindow(wyn_xlib.xlib_display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+    [[maybe_unused]] const int res = XResizeWindow(wyn_xlib.display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
     wyn_dispatch_x11(true);
 }
 
@@ -786,7 +847,7 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
     const Window x11_window = (Window)window;
     
     XWindowAttributes attr;
-    const Status res = XGetWindowAttributes(wyn_xlib.xlib_display, x11_window, &attr);
+    const Status res = XGetWindowAttributes(wyn_xlib.display, x11_window, &attr);
     WYN_ASSERT(res != 0);
     
     return (wyn_rect_t){
@@ -809,18 +870,19 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
 
     const Window x11_window = (Window)window;
+    (void)borderless;
     
     if (origin && extent)
     {
-        [[maybe_unused]] const int res = XMoveResizeWindow(wyn_xlib.xlib_display, x11_window, (int)rounded_x, (int)rounded_y, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        [[maybe_unused]] const int res = XMoveResizeWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y, (unsigned int)rounded_w, (unsigned int)rounded_h);
     }
     else if (extent)
     {
-        [[maybe_unused]] const int res = XResizeWindow(wyn_xlib.xlib_display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        [[maybe_unused]] const int res = XResizeWindow(wyn_xlib.display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
     }
     else if (origin)
     {
-        [[maybe_unused]] const int res = XMoveWindow(wyn_xlib.xlib_display, x11_window, (int)rounded_x, (int)rounded_y);
+        [[maybe_unused]] const int res = XMoveWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y);
     }
 
     wyn_dispatch_x11(true);
@@ -834,7 +896,49 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
  */
 extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* const title)
 {
-    [[maybe_unused]] const int res = XStoreName(wyn_xlib.xlib_display, (Window)window, (title ? (const char*)title : ""));
+    [[maybe_unused]] const int res = XStoreName(wyn_xlib.display, (Window)window, (title ? (const char*)title : ""));
+}
+
+// ================================================================================================================================
+
+extern unsigned int wyn_enumerate_displays(wyn_display_callback const callback, void* const userdata)
+{
+    Window const root = DefaultRootWindow(wyn_xlib.display);
+    XRRScreenResources* const xrr = XRRGetScreenResourcesCurrent(wyn_xlib.display, root);
+    if (!xrr) return 0;
+
+    wyn_bool_t cont = true;
+    unsigned int counter = 0;
+    
+    for (int idx = 0; cont && (idx < xrr->ncrtc); ++idx)
+    {
+        RRCrtc const crtc = xrr->crtcs[idx];
+        if (crtc == None) continue;
+
+        XRRCrtcInfo* const info = XRRGetCrtcInfo(wyn_xlib.display, xrr, crtc);
+        if (info->mode != None)
+        {
+            ++counter;
+            cont = callback(userdata, info);
+        }
+        XRRFreeCrtcInfo(info);
+    }
+    
+    XRRFreeScreenResources(xrr);
+    return counter;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_rect_t wyn_display_position(wyn_display_t const display)
+{
+    WYN_ASSUME(display != 0);
+    XRRCrtcInfo* const info = (XRRCrtcInfo*)display;
+
+    return (wyn_rect_t){
+        .origin = { .x = (wyn_coord_t)info->x, .y = (wyn_coord_t)info->y },
+        .extent = { .w = (wyn_coord_t)info->width, .h = (wyn_coord_t)info->height }
+    };
 }
 
 // ================================================================================================================================
@@ -842,7 +946,7 @@ extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* cons
 extern void* wyn_native_context(wyn_window_t const window)
 {
     (void)window;
-    return wyn_xlib.xlib_display;
+    return wyn_xlib.display;
 }
 
 // ================================================================================================================================
@@ -862,7 +966,7 @@ extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
 static inline wyn_keycode_t wyn_map_keysym(const KeySym keysym)
 {
     if (keysym == NoSymbol) return (wyn_keycode_t)~0;
-    const KeyCode keycode = XKeysymToKeycode(wyn_xlib.xlib_display, keysym);
+    const KeyCode keycode = XKeysymToKeycode(wyn_xlib.display, keysym);
     return keycode == NoSymbol ? (wyn_keycode_t)~0 : (wyn_keycode_t)keycode; 
 }
 
