@@ -919,7 +919,7 @@ extern unsigned int wyn_enumerate_displays(wyn_display_callback const callback, 
         if (info->mode != None)
         {
             ++counter;
-            cont = callback(userdata, info);
+            if (callback) cont = callback(userdata, info);
         }
         XRRFreeCrtcInfo(info);
     }

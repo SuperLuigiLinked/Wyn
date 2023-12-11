@@ -29,7 +29,6 @@ static void app_reinit(App* const self)
     self->epoch = wyt_nanotime();
     self->vb_mapping = wyn_vb_mapping();
     self->vk_mapping = wyn_vk_mapping();
-    self->fullscreen = false;
 
     const wyn_rect_t monitor = primary_display();
     const wyn_extent_t window_extent = { .w = 640.0, .h = 480.0 };
@@ -39,7 +38,7 @@ static void app_reinit(App* const self)
     self->window = wyn_window_open();
     ASSERT(self->window != 0);
 
-    wyn_window_reposition(self->window, &window_origin, &window_extent, false);
+    wyn_window_reposition(self->window, &window_origin, &window_extent);
     wyn_window_retitle(self->window, window_title);
     wyn_window_show(self->window);
 }
@@ -112,6 +111,14 @@ extern void wyn_on_window_reposition(void* const userdata, wyn_window_t const wi
 
 }
 
+extern void wyn_on_display_change(void* const userdata)
+{
+    App* const self = userdata;
+    const unsigned int count = wyn_enumerate_displays(NULL, NULL);
+    LOG("[EVENTS] (%"PRIu64") DISPLAYS | %u\n", ++self->num_events, (unsigned int)count);
+
+}
+
 extern void wyn_on_cursor(void* const userdata, wyn_window_t const window, wyn_coord_t const sx, wyn_coord_t const sy)
 {
     App* const self = userdata;
@@ -154,18 +161,8 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
     {
         if (pressed)
         {
-            self->fullscreen = !self->fullscreen;
-
-            if (self->fullscreen)
-            {
-                self->saved_window = wyn_window_position(self->window);
-                const wyn_rect_t monitor = primary_display();
-                wyn_window_reposition(self->window, &monitor.origin, &monitor.extent, true);
-            }
-            else
-            {
-                wyn_window_reposition(self->window, &self->saved_window.origin, &self->saved_window.extent, false);
-            }
+            const bool was_fullscreen = wyn_window_is_fullscreen(self->window);
+            wyn_window_fullscreen(self->window, !was_fullscreen);
         }
     }
 }

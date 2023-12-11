@@ -177,14 +177,28 @@ extern void wyn_window_resize(wyn_window_t window, wyn_extent_t extent);
 extern wyn_rect_t wyn_window_position(wyn_window_t window);
 
 /**
- * @brief Sets the Position and Visual Style of a Window.
+ * @brief Sets the Position of a Window.
  * @param[in] window [non-null] A handle to the Window.
  * @param[in] origin [nullable] The content origin, in Screen Coordinates.
  * @param[in] extent [nullable] The content extent, in Screen Coordinates.
- * @param     borderless `true` if Window should be Borderless, `false` otherwise.
  * @note If the origin/extent is NULL, the previous origin/extent is kept.
+ * @note If the Window is FULLSCREEN, this call may be ignored.
  */
-extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent, bool borderless);
+extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent);
+
+/**
+ * @brief Queries a Window's Fullscreen status.
+ * @param[in] window [non-null] A handle to the Window.
+ * @return `true` if Fullscreen, `false` otherwise.
+ */
+extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t window);
+
+/**
+ * @brief Sets a Window's Fullscreen status.
+ * @param[in] window [non-null] A handle to the Window.
+ * @param     status `true` to enter Fullscreen, `false` to exit Fullscreen.
+ */
+extern void wyn_window_fullscreen(wyn_window_t window, wyn_bool_t status);
 
 /**
  * @brief Sets the title of a Window.

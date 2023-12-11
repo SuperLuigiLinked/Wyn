@@ -34,6 +34,11 @@
  */
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
+// --------------------------------------------------------------------------------------------------------------------------------
+
+#define WYN_STYLE_BORDERED (NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable)
+#define WYN_STYLE_BORDERLESS (NSWindowStyleMaskBorderless)
+
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -203,6 +208,15 @@ static void wyn_run_native(void)
 {
     wyn_quit();
     return NSTerminateCancel;
+}
+
+/**
+ * @see AppKit:
+ * - https://developer.apple.com/documentation/appkit/nsapplicationdelegate/1428424-applicationdidchangescreenparame?language=objc
+ */
+- (void)applicationDidChangeScreenParameters:(NSNotification *)notification
+{
+    wyn_on_display_change(wyn_cocoa.userdata);
 }
 
 /**
@@ -516,8 +530,7 @@ extern void wyn_signal(void)
 extern wyn_window_t wyn_window_open(void)
 {
     const NSRect rect = { .origin = { .x = 0.0, .y = 0.0 }, .size = { .width = 640.0, .height = 480.0 } };
-    const NSWindowStyleMask style = NSWindowStyleMaskClosable | NSWindowStyleMaskTitled | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
-    NSWindow* const ns_window = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:FALSE];
+    NSWindow* const ns_window = [[NSWindow alloc] initWithContentRect:rect styleMask:WYN_STYLE_BORDERED backing:NSBackingStoreBuffered defer:FALSE];
     if (ns_window)
     {
         [ns_window setDelegate:wyn_cocoa.delegate];
@@ -629,18 +642,46 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent, bool const borderless)
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
 {
     NSWindow* const ns_window = (NSWindow*)window;
+
+    NSWindowStyleMask const old_style = [ns_window styleMask];
+    const bool was_fullscreen = (old_style & NSWindowStyleMaskFullScreen) != 0;
+    if (was_fullscreen) return;
+
     NSRect const old_frame = [ns_window frame];
     NSRect const old_content = [ns_window contentRectForFrameRect:old_frame];
 
     NSPoint const new_origin = (origin) ? (NSPoint){ .x = (CGFloat)origin->x, .y = (CGFloat)origin->y } : old_content.origin;
     NSSize const new_size = (extent) ? (NSSize){ .width = (CGFloat)extent->w, .height = (CGFloat)extent->h } : old_content.size;
+    NSRect const new_content = { .origin = new_origin, .size = new_size };
 
-    const NSRect new_content = { .origin = new_origin, .size = new_size };
-    const NSRect new_frame = [ns_window frameRectForContentRect:new_content];
+    NSRect const new_frame = [ns_window frameRectForContentRect:new_content];
     [ns_window setFrame:new_frame display:YES];
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+
+    NSWindowStyleMask const style = [ns_window styleMask];
+    return (wyn_bool_t)((style & NSWindowStyleMaskFullScreen) != 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_window_fullscreen(wyn_window_t const window, wyn_bool_t const status)
+{
+    NSWindow* const ns_window = (NSWindow*)window;
+
+    NSWindowStyleMask const old_style = [ns_window styleMask];
+    const bool was_fullscreen = (old_style & NSWindowStyleMaskFullScreen) != 0;
+    if (was_fullscreen == status) return;
+
+    [ns_window toggleFullScreen:nil];
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -659,6 +700,40 @@ extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* cons
     WYN_ASSERT(ns_string != nil);
 
     [ns_window setTitle:ns_string];
+}
+
+// ================================================================================================================================
+
+extern unsigned int wyn_enumerate_displays(wyn_display_callback const callback, void* const userdata)
+{
+    NSArray<NSScreen*>* const ns_screens = [NSScreen screens];
+    const NSUInteger screen_count = [ns_screens count];
+    if (!callback) return (unsigned int)screen_count;
+    
+    NSUInteger counter;
+    for (counter = 0; counter < screen_count; ++counter)
+    {
+        NSScreen* const ns_screen = [ns_screens objectAtIndex:counter];
+
+        wyn_display_t const display = (wyn_display_t)ns_screen;
+        if (!callback(userdata, display)) return (unsigned int)(counter + 1);
+    }
+    return (unsigned int)counter;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_rect_t wyn_display_position(wyn_display_t const display)
+{
+    WYN_ASSUME(display != NULL);
+
+    NSScreen* const ns_screen = (NSScreen*)display;
+    NSRect frame = [ns_screen frame];
+    
+    return (wyn_rect_t){
+        .origin = { .x = (wyn_coord_t)frame.origin.x, .y = (wyn_coord_t)frame.origin.y },
+        .extent = { .w = (wyn_coord_t)frame.size.width, .h = (wyn_coord_t)frame.size.height }
+    };
 }
 
 // ================================================================================================================================

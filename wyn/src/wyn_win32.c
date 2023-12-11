@@ -918,22 +918,16 @@ static BOOL CALLBACK wyn_win32_edm_callback(HMONITOR const monitor, HDC const hd
     WYN_ASSUME(data != NULL);
 
     ++data->counter;
+    if (!data->callback) return TRUE;
 
-    if (data->callback)
-    {
-        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
-        MONITORINFO info = { .cbSize = sizeof(MONITORINFO) };
-        const BOOL res_info = GetMonitorInfoW(monitor, &info);
-        WYN_ASSERT(res_info != 0);
+    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
+    MONITORINFO info = { .cbSize = sizeof(MONITORINFO) };
+    const BOOL res_info = GetMonitorInfoW(monitor, &info);
+    WYN_ASSERT(res_info != 0);
 
-        const wyn_display_t display = (wyn_display_t)&info;
-        const wyn_bool_t res = data->callback(data->userdata, display);
-        return (BOOL)res;
-    }
-    else
-    {
-        return TRUE;
-    }
+    const wyn_display_t display = (wyn_display_t)&info;
+    const wyn_bool_t res = data->callback(data->userdata, display);
+    return (BOOL)res;
 }
 
 extern unsigned int wyn_enumerate_displays(wyn_display_callback callback, void* userdata)
@@ -953,8 +947,8 @@ extern wyn_rect_t wyn_display_position(wyn_display_t const display)
     WYN_ASSUME(info != NULL);
 
     return (wyn_rect_t){
-        .origin = { .x = info->rcMonitor.left, .y = info->rcMonitor.top },
-        .extent = { .w = info->rcMonitor.right - info->rcMonitor.left, .h = info->rcMonitor.bottom - info->rcMonitor.top }
+        .origin = { .x = (wyn_coord_t)info->rcMonitor.left, .y = (wyn_coord_t)(info->rcMonitor.top) },
+        .extent = { .w = (wyn_coord_t)(info->rcMonitor.right - info->rcMonitor.left), .h = (wyn_coord_t)(info->rcMonitor.bottom - info->rcMonitor.top) }
     };
 }
 
