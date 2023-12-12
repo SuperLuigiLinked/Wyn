@@ -59,9 +59,6 @@ enum wyn_atom_t {
     wyn_atom_WM_PROTOCOLS,
     wyn_atom_WM_DELETE_WINDOW,
     wyn_atom_NET_WM_STATE,
-    wyn_atom_NET_WM_STATE_ADD,
-    wyn_atom_NET_WM_STATE_REMOVE,
-    wyn_atom_NET_WM_STATE_TOGGLE,
     wyn_atom_NET_WM_STATE_FULLSCREEN,
     wyn_atom_len,
 };
@@ -74,9 +71,6 @@ static const char* const wyn_atom_names[wyn_atom_len] = {
     [wyn_atom_WM_PROTOCOLS] = "WM_PROTOCOLS",
     [wyn_atom_WM_DELETE_WINDOW] = "WM_DELETE_WINDOW",
     [wyn_atom_NET_WM_STATE] = "_NET_WM_STATE",
-    [wyn_atom_NET_WM_STATE_ADD] = "_NET_WM_STATE_ADD",
-    [wyn_atom_NET_WM_STATE_REMOVE] = "_NET_WM_STATE_REMOVE",
-    [wyn_atom_NET_WM_STATE_TOGGLE] = "_NET_WM_STATE_TOGGLE",
     [wyn_atom_NET_WM_STATE_FULLSCREEN] = "_NET_WM_STATE_FULLSCREEN",
 };
 
@@ -307,7 +301,7 @@ static void wyn_run_native(void)
  */
 static void wyn_dispatch_x11(bool const sync)
 {
-    #define WYN_EVT_LOG(...) WYN_LOG(__VA_ARGS__)
+    #define WYN_EVT_LOG(...) // WYN_LOG(__VA_ARGS__)
 
     if (sync)
     {
@@ -748,10 +742,10 @@ extern wyn_window_t wyn_window_open(void)
 
     if (x11_window != 0)
     {
-        const Status res_proto = XSetWMProtocols(wyn_xlib.display, x11_window, wyn_xlib.atoms, wyn_atom_len);
+        const Status res_proto = XSetWMProtocols(wyn_xlib.display, x11_window, wyn_xlib.atoms, 2);
         WYN_ASSERT(res_proto != 0);
 
-        // [[maybe_unused]] const int res_clr = XSetWindowBackground(wyn_xlib.display, x11_window, BlackPixel(wyn_xlib.display, DefaultScreen(wyn_xlib.display)));
+        // [[maybe_unused]] const int res_back = XSetWindowBackground(wyn_xlib.display, x11_window, BlackPixel(wyn_xlib.display, DefaultScreen(wyn_xlib.display)));
     }
 
     return (wyn_window_t)x11_window;
@@ -862,7 +856,7 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
  * @see Xlib:
  * - https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml
  */
-extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent, bool const borderless)
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
 {
     const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
     const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
@@ -870,7 +864,6 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
 
     const Window x11_window = (Window)window;
-    (void)borderless;
     
     if (origin && extent)
     {
@@ -886,6 +879,63 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     }
 
     wyn_dispatch_x11(true);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
+{
+    Atom prop_type = 0;
+    int prop_format = 0;
+    unsigned long num_items = 0;
+    unsigned long extra_bytes = 0;
+    unsigned char* value = NULL;
+
+    const int res = XGetWindowProperty(
+        wyn_xlib.display, (Window)window,
+        wyn_xlib.atoms[wyn_atom_NET_WM_STATE], 0, sizeof(Atom), False, XA_ATOM,
+        &prop_type, &prop_format, &num_items, &extra_bytes, &value
+    );
+    WYN_ASSERT(res == Success);
+    WYN_ASSERT(prop_type == XA_ATOM);
+    WYN_ASSERT(prop_format == 32);
+
+    bool found = false;
+    for (unsigned long idx = 0; idx < num_items; ++idx)
+    {
+        long item = 0; 
+        memcpy(&item, value + sizeof(item) * idx, sizeof(item));
+        const Atom atom = (Atom)item;
+
+    #if 0
+        const char* name = XGetAtomName(wyn_xlib.display, atom);
+        WYN_LOG("[WYN] [%lu] S: {%ld} \"%s\" |\n", idx, atom, name);
+    #endif
+
+        found |= (atom == wyn_xlib.atoms[wyn_atom_NET_WM_STATE_FULLSCREEN]);
+        if (found) break;
+    }
+
+    [[maybe_unused]] const int res_free = XFree(value);
+    return found;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_window_fullscreen(wyn_window_t const window, wyn_bool_t const status)
+{
+    const Window x11_window = (Window)window;
+
+    XEvent xevt = {
+        .xclient = {
+            .type = ClientMessage,
+            .window = x11_window,
+            .message_type = wyn_xlib.atoms[wyn_atom_NET_WM_STATE],
+            .format = 32,
+            .data = { .l = { (long)status, (long)wyn_xlib.atoms[wyn_atom_NET_WM_STATE_FULLSCREEN], 0, 1, 0 } },
+        }
+    };
+    [[maybe_unused]] const int res = XSendEvent(wyn_xlib.display, DefaultRootWindow(wyn_xlib.display), 0, SubstructureRedirectMask | SubstructureNotifyMask, &xevt);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
