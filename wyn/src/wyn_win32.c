@@ -841,8 +841,10 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
  * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
  */
-extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent, bool const borderless)
+extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
 {
+    if (wyn_window_is_fullscreen(window)) return;
+
     const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
     const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
     const wyn_coord_t rounded_w = extent ? ceil(extent->w) : 0.0;
@@ -851,21 +853,53 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     const HWND hwnd = (HWND)window;
     
     const UINT dpi = GetDpiForWindow(hwnd);
-    const BOOL visible = IsWindowVisible(hwnd);
-    const DWORD ws_style = (borderless ? WYN_WS_STYLE_BORDERLESS : WYN_WS_STYLE_BORDERED) | (visible ? WS_VISIBLE : 0);
-    const DWORD ex_style = borderless ? WYN_EX_STYLE_BORDERLESS : WYN_EX_STYLE_BORDERED;
+    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
 
     RECT rect = { .left = (LONG)rounded_x, .top = (LONG)rounded_y, .right = (LONG)(rounded_x + rounded_w), .bottom = (LONG)(rounded_y + rounded_h) };
     const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
     WYN_ASSERT(res_adj != 0);
 
-    [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, ws_style);
-    [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
     const BOOL res_set = SetWindowPos(
         hwnd, 0, (int)rect.left, (int)rect.top, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
-        (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
+        (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
     );
     WYN_ASSERT(res_set != 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
+{
+    const HWND hwnd = (HWND)window;
+
+    const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const BOOL maximized = IsZoomed(hwnd);
+
+    return ((style & WS_POPUP) != 0) && maximized;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyn_window_fullscreen(wyn_window_t const window, wyn_bool_t const status)
+{
+    const wyn_bool_t was_fullscreen = wyn_window_is_fullscreen(window);
+    if (was_fullscreen == status) return;
+
+    const HWND hwnd = (HWND)window;
+    
+    if (status)
+    {
+        [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WS_STYLE_BORDERLESS);
+        [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_EX_STYLE_BORDERLESS);
+        [[maybe_unused]] const BOOL res_show = ShowWindow(hwnd, SW_MAXIMIZE);
+    }
+    else
+    {
+        [[maybe_unused]] const BOOL res_show = ShowWindow(hwnd, SW_RESTORE);
+        [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WS_STYLE_BORDERED | WS_VISIBLE);
+        [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_EX_STYLE_BORDERED);
+    }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
