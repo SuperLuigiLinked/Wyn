@@ -1,6 +1,5 @@
 /**
  * @file wyt.h
- *
  * @brief Wyt: Cross-Platform Threading/Timing Library.
  */
 
@@ -13,20 +12,26 @@
 //  Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
-#if defined(__cplusplus) && (__cplusplus >= 201103L)                // C++11
+#if defined(__cplusplus) && (__cplusplus >= 200809L)
+    /// @see [[noreturn]] | (C++11) | https://en.cppreference.com/w/cpp/feature_test
     #define WYT_NORETURN [[noreturn]]
-#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)    // C23
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202202L)
+    /// @see [[noreturn]] | (C23) | https://en.cppreference.com/w/c/language/attributes
     #define WYT_NORETURN [[noreturn]]
-#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)    // C11
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+    /// @see _Noreturn | (C11) | https://en.cppreference.com/w/c/language/_Noreturn
     #define WYT_NORETURN _Noreturn
 #else
     #define WYT_NORETURN
 #endif
 
-#if defined(__cplusplus)    // C++
-    #define WYT_BOOL bool
-#else                       // C
-    #define WYT_BOOL _Bool
+/**
+ * @brief Language-agnostic boolean type.
+ */
+#if defined(__cplusplus)
+    typedef bool wyt_bool_t;
+#else
+    typedef _Bool wyt_bool_t;
 #endif
 
 // ================================================================================================================================
@@ -36,55 +41,39 @@
 /**
  * @brief Unsigned Integer capable of holding Timepoints.
  */
-typedef unsigned long long wyt_time_t;
+typedef unsigned long long wyt_utime_t;
 
 /**
  * @brief Signed Integer capable of holding the difference between Timepoints.
  */
-typedef signed long long wyt_duration_t;
+typedef signed long long wyt_stime_t;
 
 /**
  * @brief Handle to a Thread.
  */
 typedef void* wyt_thread_t;
 
+/**
+ * @brief Return Value type for Wyt Threads.
+ * @details Guaranteed to be either an Integer or a Pointer.
+ * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
+ */
 #ifdef _WIN32
     #ifdef _VC_NODEFAULTLIB
-        /**
-         * @brief Return Value type for Wyt Threads.
-         * @details Guaranteed to be either an Integer or a Pointer.
-         * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
-         */
         typedef unsigned long wyt_retval_t;
-
-        /**
-         * @brief Calling Convention for Wyt Threads.
-         */
-        #define WYT_ENTRY __stdcall
     #else
-        /**
-         * @brief Return Value type for Wyt Threads.
-         * @details Guaranteed to be either an Integer or a Pointer.
-         * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
-         */
         typedef unsigned int wyt_retval_t;
-
-        /**
-         * @brief Calling Convention for Wyt Threads.
-         */
-        #define WYT_ENTRY __stdcall
     #endif
 #else
-    /**
-     * @brief Return Value type for Wyt Threads.
-     * @details Guaranteed to be either an Integer or a Pointer.
-     * @warning There are no guarantees on the size of this type. (Potentially smaller than a pointer)
-     */
     typedef void* wyt_retval_t;
+#endif
 
-    /**
-     * @brief Calling Convention for Wyt Threads.
-     */
+/**
+ * @brief Calling Convention for Wyt Threads.
+ */
+#ifdef _WIN32
+    #define WYT_ENTRY __stdcall
+#else
     #define WYT_ENTRY /* __cdecl */
 #endif
 
@@ -122,21 +111,21 @@ extern "C" {
  * @brief Gets a nanosecond timepoint (relative to an unspecified epoch) from a monotonic clock.
  * @return The approximate timepoint the function was called at.
  */
-extern wyt_time_t wyt_nanotime(void);
+extern wyt_utime_t wyt_nanotime(void);
 
 /**
  * @brief Sleeps the current thread for at least `duration` nanoseconds.
  * @details If the duration is less than or equal to 0, this function will return immediately.
  * @param duration The duration to sleep for, based on the same clock as `wyt_nanotime`.
  */
-extern void wyt_nanosleep_for(wyt_duration_t duration);
+extern void wyt_nanosleep_for(wyt_stime_t duration);
 
 /**
  * @brief Sleeps the current thread until at least `timepoint` has passed.
  * @details If the timepoint has already passed, this function will return immediately.
  * @param timepoint The timepoint to sleep until, based on the same clock as `wyt_nanotime`.
  */
-extern void wyt_nanosleep_until(wyt_time_t timepoint);
+extern void wyt_nanosleep_until(wyt_utime_t timepoint);
 
 /**
  * @brief Yields execution of the current thread temporarily.
@@ -145,8 +134,8 @@ extern void wyt_yield(void);
 
 /**
  * @brief Attempts to spawn a new thread.
- * @param func [non-null] The entry-function to call on the new thread.
- * @param arg  [nullable] The argument to pass to the thread's entry-function.
+ * @param[in] func [non-null] The entry-function to call on the new thread.
+ * @param[in] arg  [nullable] The argument to pass to the thread's entry-function.
  * @return [nullable] NON-NULL handle to the new thread on success, NULL on failure.
  * @warning If successful, the returned handle must be passed to either `wyt_join` or `wyt_detach` in order to not leak resources.
  */
@@ -161,7 +150,7 @@ WYT_NORETURN extern void wyt_exit(wyt_retval_t retval);
 
 /**
  * @brief Waits until the specified thread has terminated.
- * @param thread [non-null] A handle to the thread to join.
+ * @param[in] thread [non-null] A handle to the thread to join.
  * @return The value returned by the thread.
  * @warning After calling this function, the thread handle is invalid and must not be used.
  * @warning A thread must not attempt to join itself.
@@ -170,7 +159,7 @@ extern wyt_retval_t wyt_join(wyt_thread_t thread);
 
 /**
  * @brief Detaches the specified thread, allowing it to execute independently.
- * @param thread [non-null] A handle to the thread to detach.
+ * @param[in] thread [non-null] A handle to the thread to detach.
  * @warning After calling this function, the thread handle is invalid and must not be used.
  * @warning A thread must not attempt to detach itself.
  */
@@ -190,7 +179,7 @@ extern wyt_pid_t wyt_pid(void);
 
 /**
  * @brief Attempts to create a new semaphore.
- * @param maximum [postive] The suggested maximum value the internal counter can have.
+ * @param maximum [positive] The suggested maximum value the internal counter can have.
  * @param initial [non-negative] The initial value of the internal counter.
  * @return [nullable] NON-NULL handle to the new semaphore on success, NULL on failure.
  * @warning If successful, the returned handle must be passed to `wyt_sem_destroy` in order to not leak resources.
@@ -207,37 +196,43 @@ extern wyt_sem_t wyt_sem_create(int maximum, int initial);
 extern void wyt_sem_destroy(wyt_sem_t sem);
 
 /**
- * @brief Attempts to increment the internal counter for a semaphore.
+ * @brief Attempts to increment the semaphore's internal counter.
  * @param[in] sem [non-null] Handle to a semaphore.
  * @return `true` if successful, `false` otherwise.
  * @warning On some platforms, the internal counter can be incremented past the suggested maximum.
  */
-extern WYT_BOOL wyt_sem_release(wyt_sem_t sem);
+extern wyt_bool_t wyt_sem_release(wyt_sem_t sem);
 
 /**
- * @brief Decrements the internal counter for a semaphore, blocking until successful.
+ * @brief Decrements the semaphore's internal counter, blocking until successful.
  * @param[in] sem [non-null] Handle to a semaphore.
  */
 extern void wyt_sem_acquire(wyt_sem_t sem);
 
 /**
- * @brief Attempts to decrement the internal counter for a semaphore.
+ * @brief Attempts to decrement the semaphore's internal counter.
  * @param[in] sem [non-null] Handle to a semaphore.
  * @return `true` if successful, `false` otherwise. 
  */
-extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem);
+extern wyt_bool_t wyt_sem_try_acquire(wyt_sem_t sem);
 
 /**
  * @brief Scales an Unsigned Integer `val` by a Fraction `num / den`.
  * @details Assumes:
- *            - `(den - 1) * num` does not overflow
  *            - `den != 0`
+ *            - `(den - 1) * num` does not overflow
  * @return The value of `val * (num / den)`, rounded down.
  */
-inline static wyt_time_t wyt_scale(const wyt_time_t val, const wyt_time_t num, const wyt_time_t den)
+#ifdef __cplusplus
+constexpr
+#endif
+inline static wyt_utime_t wyt_scale(const wyt_utime_t val, const wyt_utime_t num, const wyt_utime_t den)
+#ifdef __cplusplus
+noexcept
+#endif
 {
-    const wyt_time_t whole = (val / den) * num;
-    const wyt_time_t fract = ((val % den) * num) / den;
+    const wyt_utime_t whole = (val / den) * num;
+    const wyt_utime_t fract = ((val % den) * num) / den;
     return whole + fract;
 }
 

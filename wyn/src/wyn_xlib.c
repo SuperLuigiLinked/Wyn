@@ -75,7 +75,7 @@ static const char* const wyn_atom_names[wyn_atom_len] = {
 };
 
 /**
- * @brief Internal structure for holding Wyn state.
+ * @brief Xlib backend state.
  */
 struct wyn_xlib_t
 {
@@ -98,7 +98,7 @@ struct wyn_xlib_t
 };
 
 /**
- * @brief Static instance of all Wyn state.
+ * @brief Static instance of Xlib backend.
  */
 static struct wyn_xlib_t wyn_xlib;
 

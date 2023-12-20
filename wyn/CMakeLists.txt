@@ -2,7 +2,11 @@
 
 # ================================================================================================================================
 
-set(WYN_USE_STUBS ON CACHE BOOL "Controls whether or not Default Stubs for Wyn Callbacks are defined.")
+if (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    set(WYN_USE_STUBS OFF CACHE BOOL "Controls whether or not Default Stubs for Wyn Callbacks are defined." FORCE)
+else()
+    set(WYN_USE_STUBS ON CACHE BOOL "Controls whether or not Default Stubs for Wyn Callbacks are defined.")
+endif()
 
 set(WYN_USE_WIN32 OFF CACHE BOOL "Win32 backend toggle.")
 set(WYN_USE_COCOA OFF CACHE BOOL "Cocoa backend toggle.")
@@ -59,18 +63,43 @@ endif()
 
 # ================================================================================================================================
 
-target_compile_features(wyn PRIVATE c_std_23)
+if (c_std_23 IN_LIST CMAKE_C_COMPILE_FEATURES)
+    target_compile_features(wyn PRIVATE c_std_23)
+elseif (c_std_17 IN_LIST CMAKE_C_COMPILE_FEATURES)
+    target_compile_features(wyn PRIVATE c_std_17)
+else()
+    target_compile_features(wyn PRIVATE c_std_11)
+endif()
 
-target_compile_options(wyn
-    PRIVATE
-        "-Weverything"
-        "-Wno-c++98-compat"
-        "-Wno-pre-c2x-compat"
-        "-Wno-declaration-after-statement"
-        "-Wno-gnu-empty-initializer"
-        "-Wno-unused-macros"
-        "-Wno-padded"
-        "-Wno-unsafe-buffer-usage"
-)
+# ================================================================================================================================
+
+if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(wyn
+        PRIVATE
+            "-Weverything"
+            "-Wno-c++98-compat"
+            "-Wno-pre-c2x-compat"
+            "-Wno-declaration-after-statement"
+            "-Wno-gnu-empty-initializer"
+            "-Wno-unused-macros"
+            "-Wno-padded"
+            "-Wno-float-equal"
+            "-Wno-unsafe-buffer-usage"
+    )
+elseif (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(wyn
+        PRIVATE
+            "-Wall"
+            "-Wextra"
+            "-Wpedantic"
+    )
+elseif (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(wyn
+        PRIVATE
+            "/W4"
+            "/wd4100" # Unused parameter
+            "/wd4189" # Unused variable
+    )
+endif()
 
 # ================================================================================================================================

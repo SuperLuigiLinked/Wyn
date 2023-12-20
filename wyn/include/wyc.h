@@ -1,7 +1,8 @@
 /**
  * @file wyc.h
- *
  * @brief Utilities for handling Mouse, Keyboard, and Gamepad inputs.
+ *
+ * The functions in this file are subject to the same limitations as those in <wyn.h>.
  */
 
 #pragma once

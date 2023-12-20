@@ -58,7 +58,7 @@
 @end
 
 /**
- * @brief Internal structure for holding Wyn state.
+ * @brief Cocoa backend state.
  */
 struct wyn_cocoa_t 
 {
@@ -69,7 +69,7 @@ struct wyn_cocoa_t
 };
 
 /**
- * @brief Static instance of all Wyn state.
+ * @brief Static instance of Cocoa backend.
  */
 static struct wyn_cocoa_t wyn_cocoa;
 

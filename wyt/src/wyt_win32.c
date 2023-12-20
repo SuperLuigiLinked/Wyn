@@ -5,44 +5,38 @@
 
 #include "wyt.h"
 
+#if __STDC_VERSION__ <= 201710L
+    #include <stdbool.h>
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-
-#ifndef _VC_NODEFAULTLIB
-    #include <process.h>
-#endif
+#include <process.h>
 
 // ================================================================================================================================
 //  Private Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef _VC_NODEFAULTLIB
-    /**
-     * @see Win32:
-     * - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
-     */
+    /// @see FatalExit | <Windows.h> <winbase.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
     #define WYT_ASSERT(expr) if (expr) {} else FatalExit(1)
 #else
-    /**
-     * @see C:
-     * - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
-     */
+    /// @see abort | <stdlib.h> <process.h> [CRT] | https://en.cppreference.com/w/c/program/abort | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
     #define WYT_ASSERT(expr) if (expr) {} else abort()
 #endif
 
+#ifdef NDEBUG
+    #define WYT_ASSUME(expr) ((void)0)
+#else
+    #define WYT_ASSUME(expr) WYT_ASSERT(expr)
+#endif
+
 #if defined(__GNUC__) || defined(__clang__)
-    /**
-     * @see GCC:
-     * - https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-_005f_005fbuiltin_005funreachable
-     * @see Clang:
-     * - https://clang.llvm.org/docs/LanguageExtensions.html#builtin-unreachable
-     */
+    /// @see __builtin_unreachable | (GCC) | https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-_005f_005fbuiltin_005funreachable
+    /// @see __builtin_unreachable | (Clang) | https://clang.llvm.org/docs/LanguageExtensions.html#builtin-unreachable
     #define WYT_UNREACHABLE() __builtin_unreachable()
 #elif defined(_MSC_VER)
-    /**
-     * @see MSVC:
-     * - https://learn.microsoft.com/en-us/cpp/intrinsics/assume
-     */
+    /// @see __assume | (MSVC) | https://learn.microsoft.com/en-us/cpp/intrinsics/assume
     #define WYT_UNREACHABLE() __assume(0)
 #else
     #define WYT_UNREACHABLE() WYT_ASSERT(false)
@@ -60,82 +54,71 @@
 //  Public Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
- * - https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
- */
-extern wyt_time_t wyt_nanotime(void)
+extern wyt_utime_t wyt_nanotime(void)
 {
+    /// @see LARGE_INTEGER | <Windows.h> <winnt.h> | https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-large_integer-r1
     LARGE_INTEGER qpf, qpc;
+    /// @see QueryPerformanceCounter | <Windows.h> <profileapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancecounter
     (void)QueryPerformanceCounter(&qpc);
+    /// @see QueryPerformanceFrequency | <Windows.h> <profileapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     (void)QueryPerformanceFrequency(&qpf);
 
-    if ((wyt_time_t)qpf.QuadPart == 10'000'000uLL) // Optimize for common 10 MHz frequency.
-        return (wyt_time_t)qpc.QuadPart * 100uLL;
+    if ((wyt_utime_t)qpf.QuadPart == 10000000uLL) // Optimize for common 10 MHz frequency.
+        return (wyt_utime_t)qpc.QuadPart * 100uLL;
     else
-        return wyt_scale((wyt_time_t)qpc.QuadPart, 1'000'000'000uLL, (wyt_time_t)qpf.QuadPart);
+        return wyt_scale((wyt_utime_t)qpc.QuadPart, 1000000000uLL, (wyt_utime_t)qpf.QuadPart);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-setwaitabletimer
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
- * - https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
- */
-extern void wyt_nanosleep_for(wyt_duration_t duration)
+extern void wyt_nanosleep_for(wyt_stime_t const duration)
 {
     if (duration <= 0) return;
 
+    /// @see CreateWaitableTimerExW | <Windows.h> <synchapi.h> [Kernel32] (Windows Vista) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createwaitabletimerexw
     const HANDLE timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_MANUAL_RESET | CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, SYNCHRONIZE | TIMER_MODIFY_STATE);
     WYT_ASSERT(timer != NULL);
 
+    /// @see SetWaitableTimer | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-setwaitabletimer
     const LARGE_INTEGER due = { .QuadPart = duration / -100 };
     const BOOL res1 = SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE);
-    WYT_ASSERT(res1 != FALSE);
+    WYT_ASSERT(res1 != 0);
 
+    /// @see WaitForSingleObject | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
     const DWORD obj = WaitForSingleObject(timer, INFINITE);
     WYT_ASSERT(obj == WAIT_OBJECT_0);
         
+    /// @see CloseHandle | <Windows.h> <handleapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
     const BOOL res2 = CloseHandle(timer);
-    WYT_ASSERT(res2 != FALSE);
+    WYT_ASSERT(res2 != 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyt_nanosleep_until(wyt_time_t timepoint)
+extern void wyt_nanosleep_until(wyt_utime_t const timepoint)
 {
-    wyt_nanosleep_for((wyt_duration_t)(timepoint - wyt_nanotime()));
+    wyt_nanosleep_for((wyt_stime_t)(timepoint - wyt_nanotime()));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep
- */
 extern void wyt_yield(void)
 {
+    /// @see Sleep | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-sleep
     Sleep(0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createthread
- * - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/beginthread-beginthreadex
- * - https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
- * - https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc
- */
-extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
+extern wyt_thread_t wyt_spawn(wyt_entry_t const func, void* const arg)
 {
+    WYT_ASSUME(func != NULL);
+    
 #ifdef _VC_NODEFAULTLIB
+    /// @see CreateThread | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createthread
     const HANDLE handle = CreateThread(NULL, 0, func, arg, 0, NULL);
 #else
+    /// @see _beginthreadex | <process.h> [CRT] | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/beginthread-beginthreadex
     const uintptr_t handle = _beginthreadex(NULL, 0, func, arg, 0, NULL);
 #endif
     return (wyt_thread_t)handle;
@@ -143,16 +126,13 @@ extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitthread
- * - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/endthread-endthreadex
- */
-WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
+WYT_NORETURN extern void wyt_exit(wyt_retval_t const retval)
 {
 #ifdef _VC_NODEFAULTLIB
+    /// @see ExitThread | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-exitthread
     ExitThread(retval);
 #else
+    /// @see _endthreadex | <process.h> [CRT] | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/endthread-endthreadex
     _endthreadex(retval);
 #endif
 
@@ -161,23 +141,21 @@ WYT_NORETURN extern void wyt_exit(wyt_retval_t retval)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodethread
- * - https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
- */
-extern wyt_retval_t wyt_join(wyt_thread_t thread)
+extern wyt_retval_t wyt_join(wyt_thread_t const thread)
 {
+    WYT_ASSUME(thread != NULL);
     const HANDLE handle = (HANDLE)thread;
 
+    /// @see WaitForSingleObject | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
     const DWORD res_wait = WaitForSingleObject(handle, INFINITE);
     WYT_ASSERT(res_wait == WAIT_OBJECT_0);
 
+    /// @see GetExitCodeThread | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodethread
     DWORD retval;
     const BOOL res_exit = GetExitCodeThread(handle, &retval);
     WYT_ASSERT(res_exit != 0);
 
+    /// @see CloseHandle | <Windows.h> <handleapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
     const BOOL res_close = CloseHandle(handle);
     WYT_ASSERT(res_close != 0);
 
@@ -186,101 +164,86 @@ extern wyt_retval_t wyt_join(wyt_thread_t thread)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
- */
-extern void wyt_detach(wyt_thread_t thread)
+extern void wyt_detach(wyt_thread_t const thread)
 {
+    WYT_ASSUME(thread != NULL);
     const HANDLE handle = (HANDLE)thread;
 
-    const BOOL res = CloseHandle(handle);
-    WYT_ASSERT(res != FALSE);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
- */
-extern wyt_tid_t wyt_tid(void)
-{
-    return (wyt_tid_t)GetCurrentThreadId();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocessid
- */
-extern wyt_pid_t wyt_pid(void)
-{
-    return (wyt_pid_t)GetCurrentProcessId();
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsemaphoreexa
- */
-extern wyt_sem_t wyt_sem_create(int maximum, int initial)
-{
-    if ((maximum < initial) || (maximum < 0) || (initial < 0)) return NULL;
-    
-    const HANDLE handle = CreateSemaphoreExW(NULL, (LONG)initial, (LONG)maximum, NULL, 0, SYNCHRONIZE | SEMAPHORE_MODIFY_STATE);
-    return (wyt_sem_t)handle;
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
- */
-extern void wyt_sem_destroy(wyt_sem_t sem)
-{
-    const HANDLE handle = (HANDLE)sem;
+    /// @see CloseHandle | <Windows.h> <handleapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
     const BOOL res = CloseHandle(handle);
     WYT_ASSERT(res != 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-releasesemaphore
- */
-extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
+extern wyt_tid_t wyt_tid(void)
 {
-    const HANDLE handle = (HANDLE)sem;
-    return ReleaseSemaphore(handle, 1, NULL) != FALSE;
+    /// @see GetCurrentThreadId | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
+    return (wyt_tid_t)GetCurrentThreadId();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject 
- */
-extern void wyt_sem_acquire(wyt_sem_t sem)
+extern wyt_pid_t wyt_pid(void)
 {
+    /// @see GetCurrentProcessId | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocessid
+    return (wyt_pid_t)GetCurrentProcessId();
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyt_sem_t wyt_sem_create(const int maximum, const int initial)
+{
+    if ((maximum < initial) || (maximum < 0) || (initial < 0)) return NULL;
+    
+    /// @see CreateSemaphoreExW | <Windows.h> <winbase.h> [Kernel32] (Windows Vista) | https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createsemaphoreexa
+    const HANDLE handle = CreateSemaphoreExW(NULL, (LONG)initial, (LONG)maximum, NULL, 0, SYNCHRONIZE | SEMAPHORE_MODIFY_STATE);
+    return (wyt_sem_t)handle;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyt_sem_destroy(wyt_sem_t const sem)
+{
+    WYT_ASSUME(sem != NULL);
     const HANDLE handle = (HANDLE)sem;
+
+    /// @see CloseHandle | <Windows.h> <handleapi.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
+    const BOOL res = CloseHandle(handle);
+    WYT_ASSERT(res != 0);
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern wyt_bool_t wyt_sem_release(wyt_sem_t const sem)
+{
+    WYT_ASSUME(sem != NULL);
+    const HANDLE handle = (HANDLE)sem;
+
+    /// @see ReleaseSemaphore | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-releasesemaphore
+    return ReleaseSemaphore(handle, 1, NULL) != 0;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+extern void wyt_sem_acquire(wyt_sem_t const sem)
+{
+    WYT_ASSUME(sem != NULL);
+    const HANDLE handle = (HANDLE)sem;
+
+    /// @see WaitForSingleObject | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
     const DWORD res = WaitForSingleObject(handle, INFINITE);
     WYT_ASSERT(res == WAIT_OBJECT_0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
- */
-extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem)
+extern wyt_bool_t wyt_sem_try_acquire(wyt_sem_t const sem)
 {
+    WYT_ASSUME(sem != NULL);
     const HANDLE handle = (HANDLE)sem;
+    
+    /// @see WaitForSingleObject | <Windows.h> <synchapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
     const DWORD res = WaitForSingleObject(handle, 0);
     return res == WAIT_OBJECT_0;
 }

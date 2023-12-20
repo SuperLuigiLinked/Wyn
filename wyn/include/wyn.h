@@ -1,6 +1,5 @@
 /**
  * @file wyn.h
- *
  * @brief Wyn: Cross-Platform Windowing Library.
  *
  * All Wyn functions must be called on the Main Thread, unless otherwise specified.
@@ -17,14 +16,14 @@
 #ifndef WYN_H
 #define WYN_H
 
-#include <wyc.h>
+#include "wyc.h"
 
 // ================================================================================================================================
 //  Type Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @brief Language-specific boolean type.
+ * @brief Language-agnostic boolean type.
  */
 #if defined(__cplusplus)
     typedef bool wyn_bool_t;
@@ -115,7 +114,7 @@ extern wyn_bool_t wyn_quitting(void);
 extern wyn_bool_t wyn_is_this_thread(void);
 
 /**
- * @brief Wakes up the Event Thread and calls the `wyn_on_signal` user-callback.
+ * @brief Wakes up the Event Thread and calls the `wyn_on_signal` user-callback on that thread.
  * @note This function may be called from any thread.
  */
 extern void wyn_signal(void);
@@ -156,20 +155,6 @@ extern void wyn_window_hide(wyn_window_t window);
 extern wyn_coord_t wyn_window_scale(wyn_window_t window);
 
 /**
- * @brief Queries the size of a Window.
- * @param[in] window [non-null] A handle to the Window.
- * @return The size of the Window's framebuffer, in Pixels.
- */
-extern wyn_extent_t wyn_window_size(wyn_window_t window);
-
-/**
- * @brief Resizes a Window.
- * @param[in] window [non-null] A handle to the Window.
- * @param extent The new size of the Window's framebuffer, in Pixels.
- */
-extern void wyn_window_resize(wyn_window_t window, wyn_extent_t extent);
-
-/**
  * @brief Queries the Position of a Window.
  * @param[in] window [non-null] A handle to the Window.
  * @return The content rectangle for the Window, in Screen Coordinates.
@@ -182,14 +167,14 @@ extern wyn_rect_t wyn_window_position(wyn_window_t window);
  * @param[in] origin [nullable] The content origin, in Screen Coordinates.
  * @param[in] extent [nullable] The content extent, in Screen Coordinates.
  * @note If the origin/extent is NULL, the previous origin/extent is kept.
- * @note If the Window is FULLSCREEN, this call may be ignored.
+ * @note If the Window is Fullscreen, this call may be ignored.
  */
 extern void wyn_window_reposition(wyn_window_t window, const wyn_point_t* origin, const wyn_extent_t* extent);
 
 /**
  * @brief Queries a Window's Fullscreen status.
  * @param[in] window [non-null] A handle to the Window.
- * @return `true` if Fullscreen, `false` otherwise.
+ * @return `true` if the Window is Fullscreen, `false` otherwise.
  */
 extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t window);
 
@@ -262,8 +247,7 @@ extern void wyn_on_start(void* userdata);
 
 /**
  * @brief Called once before the Event Loop has been terminated.
- * @details Once this function is called, exec-callbacks can no longer be scheduled, and all pending callbacks are canceled.
- *          After this function returns, all remaining windows will be forcibly closed, without calling the user-callback.
+ * @details After this function returns, all remaining windows will be forcibly closed, without calling the user-callback.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  */
 extern void wyn_on_stop(void* userdata);
@@ -295,14 +279,14 @@ extern void wyn_on_window_redraw(void* userdata, wyn_window_t window);
  * @param[in] window   [non-null] A handle to the Window that is about to close.
  * @param     focused  `true` if the Window gained focused, `false` otherwise.
  */
-extern void wyn_on_window_focus(void* userdata, wyn_window_t window, bool focused);
+extern void wyn_on_window_focus(void* userdata, wyn_window_t window, wyn_bool_t focused);
 
 /**
  * @brief Called when a Window is resized.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window that was resized.
- * @param[in] content  The new content rectangle, in Screen Coordinates.
- * @param[in] scale    The new scale.
+ * @param     content  The new content rectangle, in Screen Coordinates.
+ * @param     scale    The new scale.
  */
 extern void wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale);
 
@@ -316,8 +300,8 @@ extern void wyn_on_display_change(void* userdata);
  * @brief Called when a Cursor is moved across a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] sx       The new X-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
- * @param[in] sy       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ * @param     sx       The new X-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
+ * @param     sy       The new Y-coordinate, relative to the Origin of the Window's content rectangle, in Screen Coordinates.
  */
 extern void wyn_on_cursor(void* userdata, wyn_window_t window, wyn_coord_t sx, wyn_coord_t sy);
 
@@ -332,8 +316,8 @@ extern void wyn_on_cursor_exit(void* userdata, wyn_window_t window);
  * @brief Called when a Scroll input occurs on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] dx       The normalized horizontal scroll delta.
- * @param[in] dy       The normalized vertical scroll delta.
+ * @param     dx       The normalized horizontal scroll delta.
+ * @param     dy       The normalized vertical scroll delta.
  */
 extern void wyn_on_scroll(void* userdata, wyn_window_t window, wyn_coord_t dx, wyn_coord_t dy);
 
@@ -341,8 +325,8 @@ extern void wyn_on_scroll(void* userdata, wyn_window_t window, wyn_coord_t dx, w
  * @brief Called when a Mouse Button is pressed/released on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] button   The virtual code representing the Button.
- * @param[in] pressed  `true` if the button was pressed, `false` if the button was released.
+ * @param     button   The virtual code representing the Button.
+ * @param     pressed  `true` if the button was pressed, `false` if the button was released.
  * @note Different platforms use different Virtual Codes to represent different Mouse Buttons.
  */
 extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t button, wyn_bool_t pressed);
@@ -351,8 +335,8 @@ extern void wyn_on_mouse(void* userdata, wyn_window_t window, wyn_button_t butto
  * @brief Called when a Key is pressed/released on a Window.
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @param[in] window   [non-null] A handle to the Window.
- * @param[in] keycode   The virtual code representing the Key.
- * @param[in] pressed  `true` if the key was pressed, `false` if the key was released.
+ * @param     keycode  The virtual code representing the Key.
+ * @param     pressed  `true` if the key was pressed, `false` if the key was released.
  * @note Different platforms use different Virtual Codes to represent different Keys.
  */
 extern void wyn_on_keyboard(void* userdata, wyn_window_t window, wyn_keycode_t keycode, wyn_bool_t pressed);

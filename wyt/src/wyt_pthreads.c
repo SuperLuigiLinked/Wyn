@@ -54,19 +54,19 @@
  * @see Apple:
  * - https://www.manpagez.com/man/3/clock_gettime_nsec_np/
  */
-extern wyt_time_t wyt_nanotime(void)
+extern wyt_utime_t wyt_nanotime(void)
 {
 #ifdef __APPLE__
     const uint64_t res = clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
     WYT_ASSERT(res != 0);
 
-    return (wyt_time_t)res;
+    return (wyt_utime_t)res;
 #else
     struct timespec tp;
     const int res = clock_gettime(CLOCK_BOOTTIME, &tp);
     WYT_ASSERT(res == 0);
     
-    return (wyt_time_t)tp.tv_sec * 1'000'000'000uLL + (wyt_time_t)tp.tv_nsec;
+    return (wyt_utime_t)tp.tv_sec * 1'000'000'000uLL + (wyt_utime_t)tp.tv_nsec;
 #endif
 }
 
@@ -76,14 +76,14 @@ extern wyt_time_t wyt_nanotime(void)
  * @see Apple:
  * - https://www.manpagez.com/man/2/nanosleep/
  */
-extern void wyt_nanosleep_for(wyt_duration_t duration)
+extern void wyt_nanosleep_for(wyt_stime_t duration)
 {
     if (duration <= 0) return;
 
 #ifdef __APPLE__
     struct timespec dur = {
-        .tv_sec = (wyt_time_t)duration / 1'000'000'000uLL,
-        .tv_nsec = (wyt_time_t)duration % 1'000'000'000uLL,
+        .tv_sec = (wyt_utime_t)duration / 1'000'000'000uLL,
+        .tv_nsec = (wyt_utime_t)duration % 1'000'000'000uLL,
     };
 
     int res;
@@ -93,7 +93,7 @@ extern void wyt_nanosleep_for(wyt_duration_t duration)
     
     WYT_ASSERT((res != -1));
 #else
-    wyt_nanosleep_until(wyt_nanotime() + (wyt_time_t)duration);
+    wyt_nanosleep_until(wyt_nanotime() + (wyt_utime_t)duration);
 #endif
 }
 
@@ -103,10 +103,10 @@ extern void wyt_nanosleep_for(wyt_duration_t duration)
  * @see Linux:
  * - https://man7.org/linux/man-pages/man2/clock_nanosleep.2.html
  */
-extern void wyt_nanosleep_until(wyt_time_t timepoint)
+extern void wyt_nanosleep_until(wyt_utime_t timepoint)
 {
 #ifdef __APPLE__
-    wyt_nanosleep_for((wyt_duration_t)(timepoint - wyt_nanotime()));
+    wyt_nanosleep_for((wyt_stime_t)(timepoint - wyt_nanotime()));
 #else
     const struct timespec tp = {
         .tv_sec = timepoint / 1'000'000'000uLL,
@@ -292,7 +292,7 @@ extern void wyt_sem_destroy(wyt_sem_t sem)
  * @see Apple:
  * - https://developer.apple.com/documentation/dispatch/1452919-dispatch_semaphore_signal
  */
-extern WYT_BOOL wyt_sem_release(wyt_sem_t sem)
+extern wyt_bool_t wyt_sem_release(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
     const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;
@@ -340,7 +340,7 @@ extern void wyt_sem_acquire(wyt_sem_t sem)
  * @see Apple:
  * - https://developer.apple.com/documentation/dispatch/1453087-dispatch_semaphore_wait
  */
-extern WYT_BOOL wyt_sem_try_acquire(wyt_sem_t sem)
+extern wyt_bool_t wyt_sem_try_acquire(wyt_sem_t sem)
 {
 #if defined(__APPLE__)
     const dispatch_semaphore_t obj = (dispatch_semaphore_t)sem;

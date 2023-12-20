@@ -8,7 +8,6 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <stdatomic.h>
 #include <string.h>
 #include <math.h>
 
@@ -29,7 +28,7 @@
 
 struct App
 {
-    wyt_time_t epoch;
+    wyt_utime_t epoch;
     uint64_t num_events;
     
     const wyn_vb_mapping_t* vb_mapping;

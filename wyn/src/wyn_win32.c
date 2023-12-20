@@ -3,12 +3,19 @@
  * @brief Implementation of Wyn for the Win32 backend.
  */
 
-#include "wyn.h"
+/// @see https://learn.microsoft.com/en-us/windows/win32/intl/conventions-for-function-prototypes
+#define UNICODE
 
-#include <stdatomic.h>
+#include <wyn.h>
+
+#if __STDC_VERSION__ <= 201710L
+    #include <stdbool.h>
+#endif
+#if !(defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__)
+    #include <stdatomic.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include <Windows.h>
 #include <windowsx.h>
@@ -18,16 +25,10 @@
 // --------------------------------------------------------------------------------------------------------------------------------
 
 #ifdef _VC_NODEFAULTLIB
-    /**
-     * @see Win32:
-     * - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
-     */
+    /// @see FatalExit | <Windows.h> <winbase.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-fatalexit
     #define WYN_ASSERT(expr) if (expr) {} else FatalExit(1)
 #else
-    /**
-     * @see Win32:
-     * - https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
-     */
+    /// @see abort | <stdlib.h> <process.h> [CRT] | https://en.cppreference.com/w/c/program/abort | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/abort
     #define WYN_ASSERT(expr) if (expr) {} else abort()
 #endif
 
@@ -37,49 +38,87 @@
     #define WYN_ASSUME(expr) WYN_ASSERT(expr)
 #endif
 
-/**
- * @see C:
- * - https://en.cppreference.com/w/c/io/fprintf
- */
-#define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
+#ifdef _VC_NODEFAULTLIB
+    #define WYN_LOG(...) ((void)0)
+#else
+    /// @see fprintf | <stdio.h> [CRT] | https://en.cppreference.com/w/c/io/fprintf | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/fprintf-fprintf-l-fwprintf-fwprintf-l
+    #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
+#endif
+
+#if __STDC_VERSION__ >= 201904L
+    /// @see [[maybe_unused]] | (C23) | https://en.cppreference.com/w/c/language/attributes/maybe_unused
+    #define WYN_UNUSED [[maybe_unused]]
+#else
+    #define WYN_UNUSED
+#endif
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-#define WYN_MSG_CLASS L"Wyn-Msg"
-#define WYN_WND_CLASS L"Wyn-Wnd"
-#define WYN_CS_STYLE (CS_HREDRAW | CS_VREDRAW)
-#define WYN_EX_STYLE_BORDERED (0)
-#define WYN_WS_STYLE_BORDERED (WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
-#define WYN_EX_STYLE_BORDERLESS (0)
-#define WYN_WS_STYLE_BORDERLESS (WS_POPUP | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+/**
+ * @brief Win32 Window-Style for Bordered Windows.
+ */
+#define WYN_WIN32_WS_STYLE_BORDERED (WS_OVERLAPPEDWINDOW | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+
+/**
+ * @brief Win32 Ex-Style for Bordered Windows.
+ */
+#define WYN_WIN32_EX_STYLE_BORDERED (0)
+
+/**
+ * @brief Win32 Window-Style for Borderless Windows.
+ */
+#define WYN_WIN32_WS_STYLE_BORDERLESS (WS_POPUP | (WS_CLIPCHILDREN | WS_CLIPSIBLINGS))
+
+/**
+ * @brief Win32 Ex-Style for Borderless Windows.
+ */
+#define WYN_WIN32_EX_STYLE_BORDERLESS (0)
 
 // ================================================================================================================================
 //  Private Declarations
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /**
- * @brief Internal structure for holding Wyn state.
+ * @brief Data for enumerating monitors.
+ */
+struct wyn_win32_monitor_data_t
+{
+    wyn_display_callback callback; ///< User-provided callback function.
+    void* userdata; ///< User-provided callback argument.
+    unsigned counter; ///< Monitor counter.
+};
+typedef struct wyn_win32_monitor_data_t wyn_win32_monitor_data_t;
+
+/**
+ * @brief Win32 backend state.
  */
 struct wyn_win32_t
 {
     void* userdata; ///< The pointer provided by the user when the Event Loop was started.
-    _Atomic(bool) quitting; ///< Flag to indicate the Event Loop is quitting.
-    
+
+#ifdef _VC_NODEFAULTLIB
+    HANDLE heap; ///< Process Heap for allocations.
+#endif
     HINSTANCE hinstance; ///< HINSTANCE for the application.
     HWND msg_hwnd; ///< Message-only Window for sending messages.
     ATOM msg_atom; ///< Atom for the message-only Window.
-    ATOM wnd_atom; ///< Atom for regular Windows.
-
+    ATOM wnd_atom; ///< Atom for user-created Windows.
     DWORD tid_main; ///< Thread ID of the Main Thread.
+    HWND surrogate_hwnd; ///< Last HWND to receive character input.
+    WCHAR surrogate_high; ///< Tracks surrogate pairs. @see https://learn.microsoft.com/en-us/windows/win32/intl/surrogates-and-supplementary-characters
 
-    WCHAR surrogates[2]; ///< Tracks Surrogate-Pairs. { [0] = High, [1] = Low }
-    HWND surrogate_hwnd; ///< Last HWND to receive a Surrogate.
+#if defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__
+    LONG quitting; ///< Flag to indicate the Event Loop is quitting.    
+#else
+    _Atomic(wyn_bool_t) quitting; ///< Flag to indicate the Event Loop is quitting.    
+#endif
 };
+typedef struct wyn_win32_t wyn_win32_t;
 
 /**
- * @brief Static instance of all Wyn state.
+ * @brief Static instance of Win32 backend.
  */
-static struct wyn_win32_t wyn_win32;
+static wyn_win32_t wyn_win32;
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -88,83 +127,134 @@ static struct wyn_win32_t wyn_win32;
  * @param[in] userdata [nullable] The pointer provided by the user when the Event Loop was started.
  * @return `true` if successful, `false` if there were errors.
  */
-static bool wyn_reinit(void* userdata);
+static wyn_bool_t wyn_win32_reinit(void* userdata);
 
 /**
  * @brief Cleans up all Wyn state.
  */
-static void wyn_deinit(void);
+static void wyn_win32_deinit(void);
 
 /**
  * @brief Destroys all remaining windows, without notifying the user.
  */
-static void wyn_destroy_windows(void);
+static void wyn_win32_destroy_windows(void);
 
 /**
  * @brief Callback function for destroying windows.
+ * @see EnumThreadWndProc | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
  */
-static BOOL CALLBACK wyn_destroy_windows_callback(HWND hwnd, LPARAM lparam);
+static BOOL CALLBACK wyn_win32_destroy_windows_callback(HWND hwnd, LPARAM lparam);
+
+/**
+ * @brief Callback function for enumerating monitors.
+ * @see MonitorEnumProc | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-monitorenumproc
+ */
+static BOOL CALLBACK wyn_win32_enum_monitors_callback(HMONITOR monitor, HDC hdc, LPRECT rect, LPARAM lparam);
 
 /**
  * @brief Runs the platform-native Event Loop.
  */
-static void wyn_run_native(void);
+static void wyn_win32_run_native(void);
 
 /**
  * @brief WndProc for the message-only Window.
+ * @see WndProc | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-wndproc
  */
-static LRESULT CALLBACK wyn_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
+static LRESULT CALLBACK wyn_win32_msgproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
 
 /**
- * @brief WndProc for regular Windows.
+ * @brief WndProc for user-created Windows.
+ * @see WndProc | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-wndproc
  */
-static LRESULT CALLBACK wyn_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
+static LRESULT CALLBACK wyn_win32_wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam);
 
+/**
+ * @brief Handler for Mouse Events.
+ */
+static inline void wyn_win32_wndproc_mouse(HWND hwnd, WPARAM wparam, LPARAM lparam, wyn_button_t button, wyn_bool_t pressed);
+
+/**
+ * @brief Handler for Text Events.
+ */
+static inline void wyn_win32_wndproc_text(wyn_window_t window, const WCHAR* src_chr, int src_len);
+
+/**
+ * @brief Allocates heap memory.
+ * @param bytes The number of bytes to allocate.
+ * @return Pointer to the allocated memory, or NULL on failure.
+ */
+static void* wyn_win32_heap_alloc(size_t bytes);
+
+/**
+ * @brief Frees heap memory.
+ * @param[in] ptr [nullable] The memory-allocation to free, or NULL.
+ */
+static void wyn_win32_heap_free(void* ptr);
+
+/**
+ * @brief Converts from wyn coords to native coords, rounding down.
+ * @param val [non-negative] The value to round down.
+ * @return `floor(val)`
+ */
+static LONG wyn_win32_floor(wyn_coord_t val);
+
+/**
+ * @brief Converts from wyn coords to native coords, rounding up.
+ * @param val [non-negative] The value to round up.
+ * @return `ceil(val)`
+ */
+static LONG wyn_win32_ceil(wyn_coord_t val);
 
 // ================================================================================================================================
 //  Private Definitions
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
- * - https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadiconw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadcursorw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
- */
-static bool wyn_reinit(void* const userdata)
+static wyn_bool_t wyn_win32_reinit(void* const userdata)
 {
     wyn_win32 = (struct wyn_win32_t){
         .userdata = userdata,
-        .quitting = false,
-        .tid_main = 0,
+    #ifdef _VC_NODEFAULTLIB
+        .heap = NULL,
+    #endif
         .hinstance = NULL,
         .msg_hwnd = NULL,
         .msg_atom = 0,
         .wnd_atom = 0,
-        .surrogates = { 0, 0 },
+        .tid_main = 0,
         .surrogate_hwnd = NULL,
+        .surrogate_high = 0,
+        .quitting = 0,
     };
-    
     {
+        /// @see GetModuleHandleW | <Windows.h> <libloaderapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulehandlew
+        wyn_win32.hinstance = GetModuleHandleW(NULL);
+        if (wyn_win32.hinstance == NULL) return false;
+    }
+    #ifdef _VC_NODEFAULTLIB
+    {
+        /// @see GetProcessHeap | <Windows.h> <heapapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-getprocessheap
+        wyn_win32.heap = GetProcessHeap();
+        if (wyn_win32.heap == NULL) return false;
+    }
+    #endif
+    {
+        /// @see GetCurrentThreadId | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
         wyn_win32.tid_main = GetCurrentThreadId();
     }
-    
     {
-        wyn_win32.hinstance = GetModuleHandleW(NULL);
-        if (wyn_win32.hinstance == 0) return false;
-    }
+        /// @see LoadIconW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadiconw
+        const HICON icon = LoadIconW(NULL, IDI_APPLICATION);
+        WYN_ASSUME(icon != NULL);
 
-    {
-        const HICON icon = LoadIcon(NULL, IDI_APPLICATION);
-        const HCURSOR cursor = LoadCursor(NULL, IDC_ARROW);
-
+        /// @see LoadCursorW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadcursorw
+        const HCURSOR cursor = LoadCursorW(NULL, IDC_ARROW);
+        WYN_ASSUME(cursor != NULL);
+        
+        /// @see WNDCLASSEXW | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassexw
         const WNDCLASSEXW wnd_class = {
             .cbSize = sizeof(WNDCLASSEXW),
-            .style = WYN_CS_STYLE,
-            .lpfnWndProc = wyn_wndproc,
+            .style = CS_HREDRAW | CS_VREDRAW,
+            .lpfnWndProc = wyn_win32_wndproc,
             .cbClsExtra = 0,
             .cbWndExtra = 0,
             .hInstance = wyn_win32.hinstance,
@@ -172,18 +262,20 @@ static bool wyn_reinit(void* const userdata)
             .hCursor = cursor,
             .hbrBackground = NULL,
             .lpszMenuName = NULL,
-            .lpszClassName = WYN_WND_CLASS,
+            .lpszClassName = L"Wyn-Wnd",
             .hIconSm = NULL,
         };
+        
+        /// @see RegisterClassExW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
         wyn_win32.wnd_atom = RegisterClassExW(&wnd_class);
         if (wyn_win32.wnd_atom == 0) return false;
     }
-
     {
+        /// @see WNDCLASSEXW | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassexw
         const WNDCLASSEXW msg_class = {
             .cbSize = sizeof(WNDCLASSEXW),
             .style = 0,
-            .lpfnWndProc = wyn_msgproc,
+            .lpfnWndProc = wyn_win32_msgproc,
             .cbClsExtra = 0,
             .cbWndExtra = 0,
             .hInstance = wyn_win32.hinstance,
@@ -191,93 +283,112 @@ static bool wyn_reinit(void* const userdata)
             .hCursor = NULL,
             .hbrBackground = NULL,
             .lpszMenuName = NULL,
-            .lpszClassName = WYN_MSG_CLASS,
+            .lpszClassName = L"Wyn-Msg",
             .hIconSm = NULL,
         };
+
+        /// @see RegisterClassExW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerclassexw
         wyn_win32.msg_atom = RegisterClassExW(&msg_class);
         if (wyn_win32.msg_atom == 0) return false;
     }
-
     {
+        /// @see CreateWindowExW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
         wyn_win32.msg_hwnd = CreateWindowExW(
-            0, WYN_MSG_CLASS, L"", 0,
+            0, MAKEINTATOM(wyn_win32.msg_atom), L"", 0,
             0, 0, 0, 0,
             HWND_MESSAGE, NULL, wyn_win32.hinstance, NULL
         );
         if (wyn_win32.msg_hwnd == NULL) return false;
     }
-
     return true;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
- */
-static void wyn_deinit(void)
+static void wyn_win32_deinit(void)
 {
-    wyn_destroy_windows();
+    wyn_win32_destroy_windows();
 
     if (wyn_win32.msg_hwnd != NULL)
     {
-        [[maybe_unused]] const BOOL res = DestroyWindow(wyn_win32.msg_hwnd);
+        /// @see DestroyWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+        const BOOL res_hwnd = DestroyWindow(wyn_win32.msg_hwnd);
+        (void)(res_hwnd != 0);
     }
 
     if (wyn_win32.msg_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_MSG_CLASS, wyn_win32.hinstance);
+        /// @see UnregisterClassW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
+        const BOOL res_msg = UnregisterClassW(MAKEINTATOM(wyn_win32.msg_atom), wyn_win32.hinstance);
+        (void)(res_msg != 0);
     }
 
     if (wyn_win32.wnd_atom != 0)
     {
-        [[maybe_unused]] const BOOL res = UnregisterClassW(WYN_WND_CLASS, wyn_win32.hinstance);
+        /// @see UnregisterClassW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unregisterclassw
+        const BOOL res_wnd = UnregisterClassW(MAKEINTATOM(wyn_win32.wnd_atom), wyn_win32.hinstance);
+        (void)(res_wnd != 0);
     }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumthreadwindows
- */
-static void wyn_destroy_windows(void)
+static void wyn_win32_destroy_windows(void)
 {
-    [[maybe_unused]] const BOOL res = EnumThreadWindows(wyn_win32.tid_main, wyn_destroy_windows_callback, 0);
+    /// @see EnumThreadWindows | <Windows.h> <winuser.h> [User32] (Windows 2000) | <https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumthreadwindows
+    WYN_UNUSED const BOOL res = EnumThreadWindows(wyn_win32.tid_main, wyn_win32_destroy_windows_callback, 0);
 }
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/ms633496(v=vs.85)
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
- */
-static BOOL CALLBACK wyn_destroy_windows_callback(HWND const hwnd, LPARAM const lparam [[maybe_unused]])
+static BOOL CALLBACK wyn_win32_destroy_windows_callback(HWND const hwnd, LPARAM const lparam WYN_UNUSED)
 {
-    [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
+    /// @see DestroyWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+    const BOOL res_destroy = DestroyWindow(hwnd);
+    (void)(res_destroy != 0);
+
     return TRUE;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessagew
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-dispatchmessagew
- */
-static void wyn_run_native(void)
+static BOOL CALLBACK wyn_win32_enum_monitors_callback(HMONITOR const monitor, HDC const hdc WYN_UNUSED, LPRECT const rect WYN_UNUSED, LPARAM const lparam)
+{
+    wyn_win32_monitor_data_t* const data = (wyn_win32_monitor_data_t*)lparam;
+    WYN_ASSUME(data != NULL);
+
+    ++data->counter;
+    if (!data->callback) return TRUE;
+
+    /// @see MONITORINFO | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
+    MONITORINFO info = { .cbSize = sizeof(MONITORINFO) };
+
+    /// @see GetMonitorInfoW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmonitorinfow
+    const BOOL res_info = GetMonitorInfoW(monitor, &info);
+    WYN_ASSERT(res_info != 0);
+
+    const wyn_display_t display = (wyn_display_t)&info;
+    const wyn_bool_t res = data->callback(data->userdata, display);
+    return (BOOL)res;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+static void wyn_win32_run_native(void)
 {
     for (;;)
     {
+        /// @see MSG | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-msg
         MSG msg;
+
+        /// @see GetMessageW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getmessagew
         const BOOL res = GetMessageW(&msg, 0, 0, 0);
         if (res == -1) break; // -1;
         if (res == 0) break; // (int)msg.wparam;
 
-        [[maybe_unused]] const BOOL res1 = TranslateMessage(&msg);
-        [[maybe_unused]] const LRESULT res2 = DispatchMessageW(&msg);
+        /// @see TranslateMessage | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-translatemessage
+        WYN_UNUSED const BOOL res1 = TranslateMessage(&msg);
+
+        /// @see DispatchMessageW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-dispatchmessagew
+        WYN_UNUSED const LRESULT res2 = DispatchMessageW(&msg);
     }
 
     wyn_quit();
@@ -285,12 +396,267 @@ static void wyn_run_native(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
- */
-static void wyn_convert_text(wyn_window_t const window, const WCHAR* src_chr, const int src_len)
+static LRESULT CALLBACK wyn_win32_msgproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
 {
+    // WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, (unsigned int)umsg, (unsigned long long)wparam, (unsigned long long)lparam);
+
+    switch (umsg)
+    {
+        /// @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
+        case WM_CLOSE:
+        {
+            /// @see PostQuitMessage | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
+            PostQuitMessage(1);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-app
+        case WM_APP:
+        {
+            wyn_on_signal(wyn_win32.userdata);
+            break;
+        }
+    }
+
+    /// @see DefWindowProcW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
+    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
+    return res;
+}
+
+// --------------------------------------------------------------------------------------------------------------------------------
+
+/// @see WndProc | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-wndproc
+static LRESULT CALLBACK wyn_win32_wndproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
+{
+    // WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
+
+    const wyn_window_t window = (wyn_window_t)hwnd;
+
+    switch (umsg)
+    {
+        /// @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
+        case WM_CLOSE:
+        {
+            wyn_on_window_close(wyn_win32.userdata, window);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint
+        case WM_PAINT:
+        {
+            wyn_on_window_redraw(wyn_win32.userdata, window);
+            break; //return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-activate
+        case WM_ACTIVATE:
+        {
+            wyn_on_window_focus(wyn_win32.userdata, window, wparam != WA_INACTIVE);
+            break;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
+        case WM_WINDOWPOSCHANGED:
+        {
+            wyn_on_window_reposition(wyn_win32.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/devio/wm-devicechange
+        case WM_DEVICECHANGE:
+        {
+            WYN_LOG("[WYN] WM_DEVICECHANGE\n");
+            wyn_on_display_change(wyn_win32.userdata);
+            break;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/gdi/wm-devmodechange
+        case WM_DEVMODECHANGE:
+        {
+            WYN_LOG("[WYN] WM_DEVMODECHANGE\n");
+            wyn_on_display_change(wyn_win32.userdata);
+            break;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousemove
+        case WM_MOUSEMOVE:
+        {
+            /// @see GET_X_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_x_lparam
+            const int xpos = GET_X_LPARAM(lparam);
+            /// @see GET_Y_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_y_lparam
+            const int ypos = GET_Y_LPARAM(lparam);
+            wyn_on_cursor(wyn_win32.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
+
+            /// @see TRACKMOUSEEVENT | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-trackmouseevent
+            TRACKMOUSEEVENT track = {
+                .cbSize = sizeof(TRACKMOUSEEVENT),
+                .dwFlags = TME_LEAVE | TME_HOVER,
+                .hwndTrack = hwnd,
+                .dwHoverTime = HOVER_DEFAULT,
+            };
+            /// @see TrackMouseEvent | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-trackmouseevent
+            const BOOL res_track = TrackMouseEvent(&track);
+            WYN_ASSERT(res_track != 0);
+
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehover
+        case WM_MOUSEHOVER:
+        {
+            WYN_LOG("[WYN] WM_MOUSEHOVER\n");
+            break;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
+        case WM_MOUSELEAVE:
+        {
+            wyn_on_cursor_exit(wyn_win32.userdata, window);
+            break;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousewheel
+        case WM_MOUSEWHEEL:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehwheel
+        case WM_MOUSEHWHEEL:
+        {
+            /// @see GET_X_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_x_lparam
+            WYN_UNUSED const int xpos = GET_X_LPARAM(lparam);
+            /// @see GET_Y_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_y_lparam
+            WYN_UNUSED const int ypos = GET_Y_LPARAM(lparam);
+            /// @see GET_KEYSTATE_WPARAM | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-get_keystate_wparam
+            WYN_UNUSED const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+            /// @see GET_WHEEL_DELTA_WPARAM | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-get_wheel_delta_wparam
+            const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
+
+            const wyn_coord_t norm = (wyn_coord_t)delta / (wyn_coord_t)WHEEL_DELTA;
+            const wyn_coord_t dx = (umsg == WM_MOUSEHWHEEL ? norm : 0.0);
+            const wyn_coord_t dy = (umsg == WM_MOUSEWHEEL  ? norm : 0.0);
+            wyn_on_scroll(wyn_win32.userdata, window, dx, dy);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown
+        case WM_LBUTTONDOWN:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttonup
+        case WM_LBUTTONUP:
+        {
+            wyn_win32_wndproc_mouse(hwnd, wparam, lparam, (wyn_button_t)MK_LBUTTON, umsg == WM_LBUTTONDOWN);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttondown
+        case WM_RBUTTONDOWN:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttonup
+        case WM_RBUTTONUP:
+        {
+            wyn_win32_wndproc_mouse(hwnd, wparam, lparam, (wyn_button_t)MK_RBUTTON, umsg == WM_RBUTTONDOWN);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttondown
+        case WM_MBUTTONDOWN:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttonup
+        case WM_MBUTTONUP:        
+        {
+            wyn_win32_wndproc_mouse(hwnd, wparam, lparam, (wyn_button_t)MK_MBUTTON, umsg == WM_MBUTTONDOWN);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttondown
+        case WM_XBUTTONDOWN:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttonup
+        case WM_XBUTTONUP:
+        {
+            /// @see GET_XBUTTON_WPARAM | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-get_xbutton_wparam
+            const WORD button = GET_XBUTTON_WPARAM(wparam);
+            if (button == XBUTTON1) wyn_win32_wndproc_mouse(hwnd, wparam, lparam, (wyn_button_t)MK_XBUTTON1, umsg == WM_XBUTTONDOWN);
+            if (button == XBUTTON2) wyn_win32_wndproc_mouse(hwnd, wparam, lparam, (wyn_button_t)MK_XBUTTON2, umsg == WM_XBUTTONDOWN);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-char
+        case WM_CHAR:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syschar
+        case WM_SYSCHAR:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-deadchar
+        case WM_DEADCHAR:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-sysdeadchar
+        case WM_SYSDEADCHAR:
+        {
+            const WCHAR code = (WCHAR)wparam;
+
+            if (wyn_win32.surrogate_hwnd != hwnd)
+            {
+                wyn_win32.surrogate_hwnd = hwnd;
+                wyn_win32.surrogate_high = 0;
+            }
+
+            /// @see IS_HIGH_SURROGATE | <Windows.h> <winnls.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/Winnls/nf-winnls-is_high_surrogate
+            if (IS_HIGH_SURROGATE(code))
+            {
+                wyn_win32.surrogate_high = code;
+                return 0;
+            }
+            /// @see IS_LOW_SURROGATE | <Windows.h> <winnls.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/Winnls/nf-winnls-is_low_surrogate
+            else if (IS_LOW_SURROGATE(code))
+            {
+                if (wyn_win32.surrogate_high != 0)
+                {
+                    const WCHAR pair[2] = { wyn_win32.surrogate_high, code };
+                    wyn_win32_wndproc_text(window, pair, 2);
+                }
+            }
+            else
+            {
+                wyn_win32_wndproc_text(window, &code, 1);
+            }
+
+            wyn_win32.surrogate_high = 0;
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
+        case WM_KEYDOWN:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown
+        case WM_SYSKEYDOWN:
+        {
+            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, true);
+            return 0;
+        }
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keyup
+        case WM_KEYUP:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeyup
+        case WM_SYSKEYUP:
+        {
+            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, false);
+            return 0;
+        }
+        // default:
+        // {
+        //     WYN_LOG("[WYN] UMSG: %u\n", (unsigned)umsg);
+        // }
+    }
+
+    /// @see DefWindowProcW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
+    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
+    return res;
+}
+
+static inline void wyn_win32_wndproc_mouse(HWND const hwnd, WPARAM const wparam, LPARAM const lparam, wyn_button_t const button, wyn_bool_t const pressed)
+{
+    /// @see GET_X_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_x_lparam
+    WYN_UNUSED const int xpos = GET_X_LPARAM(lparam);
+    /// @see GET_Y_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_y_lparam
+    WYN_UNUSED const int ypos = GET_Y_LPARAM(lparam);
+    /// @see GET_KEYSTATE_WPARAM | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-get_keystate_wparam
+    WYN_UNUSED const WORD mods = GET_KEYSTATE_WPARAM(wparam);
+
+    if (pressed)
+    {
+        /// @see SetCapture | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcapture
+        WYN_UNUSED HWND prev_cap = SetCapture(hwnd);
+    }
+    else
+    {
+        if ((mods & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2)) == 0)
+        {
+            /// @see ReleaseCapture | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setcapture
+            const BOOL res_release = ReleaseCapture();
+            (void)(res_release != 0);
+        }
+    }
+
+    wyn_on_mouse(wyn_win32.userdata, (wyn_window_t)hwnd, button, pressed);
+}
+
+static void wyn_win32_wndproc_text(wyn_window_t const window, const WCHAR* const src_chr, const int src_len)
+{
+    /// @see WideCharToMultiByte | <Windows.h> <stringapiset.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-widechartomultibyte
     char dst_chr[5];
     const int dst_len = WideCharToMultiByte(CP_UTF8, 0, src_chr, src_len, dst_chr, sizeof(dst_chr) - 1, NULL, NULL);
     dst_chr[dst_len] = '\0';
@@ -301,338 +667,44 @@ static void wyn_convert_text(wyn_window_t const window, const WCHAR* src_chr, co
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
- * - https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-app
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
- */
-static LRESULT CALLBACK wyn_msgproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
+static void* wyn_win32_heap_alloc(size_t const bytes)
 {
-    //WYN_LOG("[MSG-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
+#ifdef _VC_NODEFAULTLIB
+    /// @see HeapAlloc | <Windows.h> <heapapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc
+    return HeapAlloc(wyn_win32.heap, 0, bytes);
+#else
+    /// @see malloc | <stdlib.h> <malloc.h> [CRT] | https://en.cppreference.com/w/c/memory/malloc | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/malloc
+    return malloc(bytes);
+#endif
+}
 
-    switch (umsg)
-    {
-        case WM_CLOSE:
-        {
-            // WYN_LOG("[MSG HWND] CLOSED!\n");
-            PostQuitMessage(1);
-            return 0;
-        }
-
-        case WM_APP:
-        {
-            wyn_on_signal(wyn_win32.userdata);
-            break;
-        }
-    }
-
-    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
-    return res;
+static void wyn_win32_heap_free(void* const ptr)
+{
+#ifdef _VC_NODEFAULTLIB
+    /// @see HeapFree | <Windows.h> <heapapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapfree
+    HeapFree(wyn_win32.heap, 0, ptr);
+#else
+    /// @see free | <stdlib.h> <malloc.h> [CRT] | https://en.cppreference.com/w/c/memory/free | https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/free
+    free(ptr);
+#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM const wparam, LPARAM const lparam)
+static LONG wyn_win32_floor(wyn_coord_t const val)
 {
-    //WYN_LOG("[WND-PROC] | %16p | %4x | %16llx | %16llx |\n", (void*)hwnd, umsg, wparam, lparam);
+    WYN_ASSUME(val >= 0);
+    
+    return (LONG)val;
+}
 
-    const wyn_window_t window = (wyn_window_t)hwnd;
+static LONG wyn_win32_ceil(wyn_coord_t const val)
+{
+    WYN_ASSUME(val >= 0);
 
-    switch (umsg)
-    {
-        // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-close
-        case WM_CLOSE:
-        {
-            wyn_on_window_close(wyn_win32.userdata, window);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/gdi/wm-paint
-        case WM_PAINT:
-        {
-            wyn_on_window_redraw(wyn_win32.userdata, window);
-            break; //return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-activate
-        case WM_ACTIVATE:
-        {
-            wyn_on_window_focus(wyn_win32.userdata, window, wparam != WA_INACTIVE);
-            break;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
-        case WM_WINDOWPOSCHANGED:
-        {
-            wyn_on_window_reposition(wyn_win32.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/devio/wm-devicechange
-        case WM_DEVICECHANGE:
-        {
-            // WYN_LOG("[WYN] WM_DEVICECHANGE\n");
-            wyn_on_display_change(wyn_win32.userdata);
-            break;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/gdi/wm-devmodechange
-        case WM_DEVMODECHANGE:
-        {
-            // WYN_LOG("[WYN] WM_DEVMODECHANGE\n");
-            wyn_on_display_change(wyn_win32.userdata);
-            break;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousemove
-        case WM_MOUSEMOVE:
-        {
-            const int xpos = GET_X_LPARAM(lparam);
-            const int ypos = GET_Y_LPARAM(lparam);
-            wyn_on_cursor(wyn_win32.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
-
-            TRACKMOUSEEVENT track = {
-                .cbSize = sizeof(TRACKMOUSEEVENT),
-                .dwFlags = TME_LEAVE,
-                .hwndTrack = hwnd,
-                .dwHoverTime = HOVER_DEFAULT,
-            };
-            const BOOL res_track = TrackMouseEvent(&track);
-            WYN_ASSERT(res_track != 0);
-
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehover
-        case WM_MOUSEHOVER:
-        {
-            break;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
-        case WM_MOUSELEAVE:
-        {
-            wyn_on_cursor_exit(wyn_win32.userdata, window);
-            break;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousewheel
-        case WM_MOUSEWHEEL:
-        {
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
-            const double norm = (double)delta / (double)WHEEL_DELTA;
-            wyn_on_scroll(wyn_win32.userdata, window, 0.0, norm);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehwheel
-        case WM_MOUSEHWHEEL:
-        {
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const short delta = GET_WHEEL_DELTA_WPARAM(wparam);
-            const double norm = (double)delta / (double)WHEEL_DELTA;
-            wyn_on_scroll(wyn_win32.userdata, window, norm, 0.0);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown
-        case WM_LBUTTONDOWN:
-        {
-            (void)SetCapture(hwnd);
-
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_LBUTTON, true);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttondown
-        case WM_RBUTTONDOWN:
-        {
-            (void)SetCapture(hwnd);
-
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_RBUTTON, true);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttondown
-        case WM_MBUTTONDOWN:
-        {
-            (void)SetCapture(hwnd);
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_MBUTTON, true);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttondown
-        case WM_XBUTTONDOWN:
-        {
-            (void)SetCapture(hwnd);
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const WORD button = GET_XBUTTON_WPARAM(wparam);
-            if (button == XBUTTON1) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON1, true);
-            if (button == XBUTTON2) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON2, true);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttonup
-        case WM_LBUTTONUP:
-        {
-            (void)ReleaseCapture();
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_LBUTTON, false);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-rbuttonup
-        case WM_RBUTTONUP:
-        {
-            (void)ReleaseCapture();
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_RBUTTON, false);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mbuttonup
-        case WM_MBUTTONUP:
-        {
-            (void)ReleaseCapture();
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_MBUTTON, false);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-xbuttonup
-        case WM_XBUTTONUP:
-        {
-            (void)ReleaseCapture();
-            
-            [[maybe_unused]] const int xpos = GET_X_LPARAM(lparam);
-            [[maybe_unused]] const int ypos = GET_Y_LPARAM(lparam);
-            [[maybe_unused]] const WORD mods = GET_KEYSTATE_WPARAM(wparam);
-            const WORD button = GET_XBUTTON_WPARAM(wparam);
-            if (button == XBUTTON1) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON1, false);
-            if (button == XBUTTON2) wyn_on_mouse(wyn_win32.userdata, window, (wyn_button_t)MK_XBUTTON2, false);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-char
-        case WM_CHAR:
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syschar
-        case WM_SYSCHAR:
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-deadchar
-        case WM_DEADCHAR:
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-sysdeadchar
-        case WM_SYSDEADCHAR:
-        {
-            // ----------------------------------------------------------------
-
-            if ((wyn_win32.surrogate_hwnd != 0) && (wyn_win32.surrogate_hwnd != hwnd))
-            {
-                wyn_win32.surrogates[0] = 0;
-                wyn_win32.surrogates[1] = 0;
-                wyn_win32.surrogate_hwnd = 0;
-            }
-
-            // ----------------------------------------------------------------
-
-            if (IS_HIGH_SURROGATE(wparam))
-            {
-                wyn_win32.surrogates[0] = (WCHAR)wparam;
-                wyn_win32.surrogate_hwnd = hwnd;
-            }
-            else if (IS_LOW_SURROGATE(wparam))
-            {
-                wyn_win32.surrogates[1] = (WCHAR)wparam;
-                wyn_win32.surrogate_hwnd = hwnd;
-            }
-            else
-            {
-                wyn_win32.surrogates[0] = 0;
-                wyn_win32.surrogates[1] = 0;
-                wyn_win32.surrogate_hwnd = 0;
-            }
-
-            // ----------------------------------------------------------------
-
-            if (wyn_win32.surrogates[0] || wyn_win32.surrogates[1])
-            {
-                if (IS_SURROGATE_PAIR(wyn_win32.surrogates[0], wyn_win32.surrogates[1]))
-                {
-                    wyn_convert_text(window, wyn_win32.surrogates, 2);
-                }
-
-                if (wyn_win32.surrogates[0] && wyn_win32.surrogates[1])
-                {
-                    wyn_win32.surrogates[0] = 0;
-                    wyn_win32.surrogates[1] = 0;
-                    wyn_win32.surrogate_hwnd = 0;
-                }
-            }
-            else
-            {
-                const WCHAR character = (WCHAR)wparam;
-                wyn_convert_text(window, &character, 1);
-            }
-
-            // ----------------------------------------------------------------
-
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keydown
-        case WM_KEYDOWN:
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeydown
-        case WM_SYSKEYDOWN:
-        {
-            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, true);
-            return 0;
-        }
-
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-keyup
-        case WM_KEYUP:
-        // https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-syskeyup
-        case WM_SYSKEYUP:
-        {
-            wyn_on_keyboard(wyn_win32.userdata, window, (wyn_keycode_t)wparam, false);
-            return 0;
-        }
-
-        // default:
-        // {
-        //     WYN_LOG("[WYN] UMSG: %u\n", (unsigned)umsg);
-        // }
-    }
-
-    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-defwindowprocw
-    const LRESULT res = DefWindowProcW(hwnd, umsg, wparam, lparam);
-    return res;
+    LONG const cast = (LONG)val;
+    wyn_coord_t const recast = (wyn_coord_t)cast;
+    return (recast == val) ? cast : cast + 1; 
 }
 
 // ================================================================================================================================
@@ -641,187 +713,131 @@ static LRESULT CALLBACK wyn_wndproc(HWND const hwnd, UINT const umsg, WPARAM con
 
 extern void wyn_run(void* const userdata)
 {
-    if (wyn_reinit(userdata))
+    if (wyn_win32_reinit(userdata))
     {
         wyn_on_start(userdata);
-        wyn_run_native();
+        wyn_win32_run_native();
         wyn_on_stop(userdata);
     }
-    wyn_deinit();
+    wyn_win32_deinit();
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see C:
- * - https://en.cppreference.com/w/c/atomic/atomic_store
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
- */
 extern void wyn_quit(void)
 {
+#if defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__
+    /// @see InterlockedExchangeNoFence | <Windows.h> <winnt.h> [Kernel32] (Windows 8) | https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh972659(v=vs.85)
+    (void)InterlockedExchangeNoFence(&wyn_win32.quitting, TRUE);
+#else
+    /// @see atomic_store_explicit | <stdatomic.h> (C11) | https://en.cppreference.com/w/c/atomic/atomic_store
     atomic_store_explicit(&wyn_win32.quitting, true, memory_order_relaxed);
+#endif
+
+    /// @see PostQuitMessage | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postquitmessage
     PostQuitMessage(0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see C:
- * - https://en.cppreference.com/w/c/atomic/atomic_load
- */
 extern wyn_bool_t wyn_quitting(void)
 {
-    return (wyn_bool_t)atomic_load_explicit(&wyn_win32.quitting, memory_order_relaxed);
+#if defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__
+    /// @see InterlockedCompareExchangeNoFence | <Windows.h> <winnt.h> [Kernel32] (Windows 8) | https://learn.microsoft.com/en-us/previous-versions/windows/desktop/legacy/hh972645(v=vs.85)
+    return (wyn_bool_t)InterlockedCompareExchangeNoFence(&wyn_win32.quitting, FALSE, FALSE);
+#else
+    /// @see atomic_load_explicit | <stdatomic.h> (C11) | https://en.cppreference.com/w/c/atomic/atomic_load
+    return atomic_load_explicit(&wyn_win32.quitting, memory_order_relaxed);
+#endif
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
- */
 extern wyn_bool_t wyn_is_this_thread(void)
 {
+    /// @see GetCurrentThreadId | <Windows.h> <processthreadsapi.h> [Kernel32] (Windows XP) | https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentthreadid
     return (wyn_bool_t)(GetCurrentThreadId() == wyn_win32.tid_main);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
- */
 extern void wyn_signal(void)
 {
+    /// @see PostMessageW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postmessagew
     const BOOL res = PostMessageW(wyn_win32.msg_hwnd, WM_APP, 0, 0);
     WYN_ASSERT(res != 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
- */
 extern wyn_window_t wyn_window_open(void)
 {
+    /// @see CreateWindowExW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
     const HWND hwnd = CreateWindowExW(
-        WYN_EX_STYLE_BORDERED, WYN_WND_CLASS, L"", WYN_WS_STYLE_BORDERED,
+        WYN_WIN32_EX_STYLE_BORDERED, MAKEINTATOM(wyn_win32.wnd_atom), L"", WYN_WIN32_WS_STYLE_BORDERED,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
         NULL, NULL, wyn_win32.hinstance, NULL
     );
-
     return (wyn_window_t)hwnd;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
- */
 extern void wyn_window_close(wyn_window_t const window)
 {
+    WYN_ASSUME(window != NULL);
     const HWND hwnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = DestroyWindow(hwnd);
+
+    /// @see DestroyWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-destroywindow
+    const BOOL res_destroy = DestroyWindow(hwnd);
+    (void)(res_destroy != 0);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
- */
 extern void wyn_window_show(wyn_window_t const window)
 {
+    WYN_ASSUME(window != NULL);
     const HWND hwnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_SHOW);
+
+    /// @see ShowWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    WYN_UNUSED const BOOL res_show = ShowWindow(hwnd, SW_SHOW);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
- */
 extern void wyn_window_hide(wyn_window_t const window)
 {
+    WYN_ASSUME(window != NULL);
     const HWND hwnd = (HWND)window;
-    [[maybe_unused]] const BOOL res = ShowWindow(hwnd, SW_HIDE);
+
+    /// @see ShowWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
+    WYN_UNUSED const BOOL res_hide = ShowWindow(hwnd, SW_HIDE);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
+extern wyn_coord_t wyn_window_scale(wyn_window_t const window WYN_UNUSED)
 {
-    (void)window;
+    WYN_ASSUME(window != NULL);
+
     return (wyn_coord_t)1.0;
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
- */
-extern wyn_extent_t wyn_window_size(wyn_window_t const window)
-{
-    const HWND hwnd = (HWND)window;
-
-    RECT rect;
-    const BOOL res = GetClientRect(hwnd, &rect);
-    WYN_ASSERT(res != 0);
-
-    return (wyn_extent_t){ .w = (wyn_coord_t)(rect.right), .h = (wyn_coord_t)(rect.bottom) };
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
- */
-extern void wyn_window_resize(wyn_window_t const window, wyn_extent_t const extent)
-{
-    const HWND hwnd = (HWND)window;
-    const wyn_coord_t rounded_w = ceil(extent.w);
-    const wyn_coord_t rounded_h = ceil(extent.h);
-
-    const UINT dpi = GetDpiForWindow(hwnd);
-    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
-    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-
-    RECT rect = { .right = (LONG)rounded_w, .bottom = (LONG)rounded_h };
-    const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
-    WYN_ASSERT(res_adj != 0);
-
-    const BOOL res_set = SetWindowPos(
-        hwnd, 0, 0, 0, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
-        SWP_NOMOVE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
-    );
-    WYN_ASSERT(res_set != 0);
-}
-
-// --------------------------------------------------------------------------------------------------------------------------------
-
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-clienttoscreen
- */
 extern wyn_rect_t wyn_window_position(wyn_window_t const window)
 {
+    WYN_ASSUME(window != NULL);
     const HWND hwnd = (HWND)window;
 
+    /// @see GetClientRect | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
     RECT rect;
     const BOOL res_rect = GetClientRect(hwnd, &rect);
     WYN_ASSERT(res_rect != 0);
 
-    POINT point = {};
+    /// @see ClientToScreen | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-clienttoscreen
+    POINT point = { 0, 0 };
     const BOOL res_point = ClientToScreen(hwnd, &point);
     WYN_ASSERT(res_point != 0);
 
@@ -833,33 +849,32 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
- * - https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
- */
 extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
 {
+    WYN_ASSUME(window != NULL);
     if (wyn_window_is_fullscreen(window)) return;
 
-    const wyn_coord_t rounded_x = origin ? floor(origin->x) : 0.0;
-    const wyn_coord_t rounded_y = origin ? floor(origin->y) : 0.0;
-    const wyn_coord_t rounded_w = extent ? ceil(extent->w) : 0.0;
-    const wyn_coord_t rounded_h = extent ? ceil(extent->h) : 0.0;
+    const LONG rounded_x = origin ? wyn_win32_floor(origin->x) : 0;
+    const LONG rounded_y = origin ? wyn_win32_floor(origin->y) : 0;
+    const LONG rounded_w = extent ? wyn_win32_ceil(extent->w) : 0;
+    const LONG rounded_h = extent ? wyn_win32_ceil(extent->h) : 0;
 
     const HWND hwnd = (HWND)window;
     
+    /// @see GetDpiForWindow | <Windows.h> <winuser.h> [User32] (Windows 10, version 1607) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
     const UINT dpi = GetDpiForWindow(hwnd);
-    const DWORD ws_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
-    const DWORD ex_style = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    WYN_ASSUME(dpi != 0);
 
-    RECT rect = { .left = (LONG)rounded_x, .top = (LONG)rounded_y, .right = (LONG)(rounded_x + rounded_w), .bottom = (LONG)(rounded_y + rounded_h) };
-    const BOOL res_adj = AdjustWindowRectExForDpi(&rect, ws_style, FALSE, ex_style, dpi);
+    /// @see GetWindowLongPtrW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
+    const LONG_PTR ws_style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    const LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+
+    /// @see AdjustWindowRectExForDpi | <Windows.h> <winuser.h> [User32] (Windows 10, version 1607) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectexfordpi
+    RECT rect = { .left = rounded_x, .top = rounded_y, .right = rounded_x + rounded_w, .bottom = rounded_y + rounded_h };
+    const BOOL res_adj = AdjustWindowRectExForDpi(&rect, (DWORD)ws_style, FALSE, (DWORD)ex_style, dpi);
     WYN_ASSERT(res_adj != 0);
 
+    /// @see SetWindowPos | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos
     const BOOL res_set = SetWindowPos(
         hwnd, 0, (int)rect.left, (int)rect.top, (int)(rect.right - rect.left), (int)(rect.bottom - rect.top),
         (origin ? 0 : SWP_NOMOVE) | (extent ? 0 : SWP_NOSIZE) | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE
@@ -871,9 +886,13 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
 
 extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
 {
+    WYN_ASSUME(window != NULL);
     const HWND hwnd = (HWND)window;
 
+    /// @see GetWindowLongPtrW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getwindowlongptrw
     const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+
+    /// @see IsZoomed | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-iszoomed
     const BOOL maximized = IsZoomed(hwnd);
 
     return ((style & WS_POPUP) != 0) && maximized;
@@ -883,93 +902,80 @@ extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
 
 extern void wyn_window_fullscreen(wyn_window_t const window, wyn_bool_t const status)
 {
+    WYN_ASSUME(window != NULL);
     const wyn_bool_t was_fullscreen = wyn_window_is_fullscreen(window);
     if (was_fullscreen == status) return;
 
     const HWND hwnd = (HWND)window;
     
+    /// @see SetWindowLongPtrW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowlongptrw
+    /// @see ShowWindow | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-showwindow
     if (status)
     {
-        [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WS_STYLE_BORDERLESS);
-        [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_EX_STYLE_BORDERLESS);
-        [[maybe_unused]] const BOOL res_show = ShowWindow(hwnd, SW_MAXIMIZE);
+        WYN_UNUSED const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WIN32_WS_STYLE_BORDERLESS);
+        WYN_UNUSED const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_WIN32_EX_STYLE_BORDERLESS);
+        WYN_UNUSED const BOOL res_show = ShowWindow(hwnd, SW_MAXIMIZE);
     }
     else
     {
-        [[maybe_unused]] const BOOL res_show = ShowWindow(hwnd, SW_RESTORE);
-        [[maybe_unused]] const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WS_STYLE_BORDERED | WS_VISIBLE);
-        [[maybe_unused]] const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_EX_STYLE_BORDERED);
+        WYN_UNUSED const BOOL res_show = ShowWindow(hwnd, SW_RESTORE);
+        WYN_UNUSED const LONG_PTR res_ws = SetWindowLongPtrW(hwnd, GWL_STYLE, WYN_WIN32_WS_STYLE_BORDERED | WS_VISIBLE);
+        WYN_UNUSED const LONG_PTR res_ex = SetWindowLongPtrW(hwnd, GWL_EXSTYLE, WYN_WIN32_EX_STYLE_BORDERED);
     }
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* const title)
+extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* title)
 {
+    WYN_ASSUME(window != NULL);
+
+    enum { buffer_chrs = 32 };
+    WCHAR buffer[buffer_chrs];
+    WCHAR* output = buffer;
+
     if (title)
     {
-        // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
-        const int req_chr = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, NULL, 0);
-        WYN_ASSERT(req_chr > 0);
+        /// @see MultiByteToWideChar | <Windows.h> <stringapiset.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
+        const int req_chrs = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, NULL, 0);
+        WYN_ASSERT(req_chrs > 0);
 
-        // https://en.cppreference.com/w/c/memory/malloc
-        WCHAR* const allocation = malloc((size_t)req_chr * sizeof(WCHAR));
-        WYN_ASSERT(allocation);
+        if (req_chrs > buffer_chrs)
+        {
+            WCHAR* const allocation = wyn_win32_heap_alloc((size_t)req_chrs * sizeof(WCHAR));
+            WYN_ASSERT(allocation);
+            output = allocation;
+        }
 
-        // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
-        const int res_cvt = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, allocation, req_chr);
-        WYN_ASSERT(res_cvt == req_chr);
-
-        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowtextw
-        const BOOL res = SetWindowTextW((HWND)window, allocation);
-        WYN_ASSERT(res != 0);
-
-        // https://en.cppreference.com/w/c/memory/free
-        free(allocation);
+        /// @see MultiByteToWideChar | <Windows.h> <stringapiset.h> [Kernel32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
+        const int res_cvt = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)title, -1, output, req_chrs);
+        WYN_ASSERT(res_cvt == req_chrs);
     }
     else
     {
-        // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowtextw
-        const BOOL res = SetWindowTextW((HWND)window, L"");
-        WYN_ASSERT(res != 0);
+        buffer[0] = L'\0';
+    }
+
+    /// @see SetWindowTextW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowtextw
+    const BOOL res = SetWindowTextW((HWND)window, output);
+    WYN_ASSERT(res != 0);
+
+    if (output != buffer)
+    {
+        wyn_win32_heap_free(output);
     }
 }
 
 // ================================================================================================================================
 
-struct wyn_win32_edm_data_t
-{
-    wyn_display_callback callback;
-    void* userdata;
-    unsigned counter;
-};
-typedef struct wyn_win32_edm_data_t wyn_win32_edm_data_t;
-
-// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-monitorenumproc
-static BOOL CALLBACK wyn_win32_edm_callback(HMONITOR const monitor, HDC const hdc [[maybe_unused]], LPRECT const rect [[maybe_unused]], LPARAM const lparam)
-{
-    wyn_win32_edm_data_t* const data = (wyn_win32_edm_data_t*)lparam;
-    WYN_ASSUME(data != NULL);
-
-    ++data->counter;
-    if (!data->callback) return TRUE;
-
-    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
-    MONITORINFO info = { .cbSize = sizeof(MONITORINFO) };
-    const BOOL res_info = GetMonitorInfoW(monitor, &info);
-    WYN_ASSERT(res_info != 0);
-
-    const wyn_display_t display = (wyn_display_t)&info;
-    const wyn_bool_t res = data->callback(data->userdata, display);
-    return (BOOL)res;
-}
-
 extern unsigned int wyn_enumerate_displays(wyn_display_callback callback, void* userdata)
 {
-    wyn_win32_edm_data_t const data = { .callback = callback, .userdata = userdata, .counter = 0 };
+    wyn_win32_monitor_data_t const data = { .callback = callback, .userdata = userdata, .counter = 0 };
 
-    [[maybe_unused]] const BOOL res_edm = EnumDisplayMonitors(NULL, NULL, wyn_win32_edm_callback, (LPARAM)&data);
-    
+    /// @see EnumDisplayMonitors | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaymonitors
+    const BOOL res_edm = EnumDisplayMonitors(NULL, NULL, wyn_win32_enum_monitors_callback, (LPARAM)&data);
+    (void)(res_edm != 0);
+
     return data.counter;
 }
 
@@ -977,8 +983,10 @@ extern unsigned int wyn_enumerate_displays(wyn_display_callback callback, void* 
 
 extern wyn_rect_t wyn_display_position(wyn_display_t const display)
 {
+    WYN_ASSUME(display != NULL);
+
+    /// @see MONITORINFO | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-monitorinfo
     const MONITORINFO* const info = (const MONITORINFO*)display;
-    WYN_ASSUME(info != NULL);
 
     return (wyn_rect_t){
         .origin = { .x = (wyn_coord_t)info->rcMonitor.left, .y = (wyn_coord_t)(info->rcMonitor.top) },
@@ -988,20 +996,18 @@ extern wyn_rect_t wyn_display_position(wyn_display_t const display)
 
 // ================================================================================================================================
 
-extern void* wyn_native_context(wyn_window_t const window)
+extern void* wyn_native_context(wyn_window_t const window WYN_UNUSED)
 {
-    (void)window;
+    WYN_ASSUME(window != NULL);
+
     return wyn_win32.hinstance;
 }
 
 // ================================================================================================================================
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
- */
 extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
 {
+    /// @see MK_* | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown#parameters
     static const wyn_vb_mapping_t mapping = {
         [wyn_vb_left]   = MK_LBUTTON, 
         [wyn_vb_right]  = MK_RBUTTON,
@@ -1012,12 +1018,9 @@ extern const wyn_vb_mapping_t* wyn_vb_mapping(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-/**
- * @see Win32:
- * - https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
- */
 extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
 {
+    /// @see VK_* | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
     static const wyn_vk_mapping_t mapping = {
         [wyn_vk_0]              = '0',
         [wyn_vk_1]              = '1',

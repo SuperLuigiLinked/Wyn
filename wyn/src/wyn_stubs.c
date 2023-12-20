@@ -22,7 +22,7 @@ extern void __attribute__((weak)) wyn_on_window_close(void* userdata, wyn_window
 extern void __attribute__((weak)) wyn_on_window_redraw(void* userdata, wyn_window_t window)
 { (void)userdata; (void)window; }
 
-extern void __attribute__((weak)) wyn_on_window_focus(void* userdata, wyn_window_t window, bool focused)
+extern void __attribute__((weak)) wyn_on_window_focus(void* userdata, wyn_window_t window, wyn_bool_t focused)
 { (void)userdata; (void)window; (void)focused; }
 
 extern void __attribute__((weak)) wyn_on_window_reposition(void* userdata, wyn_window_t window, wyn_rect_t content, wyn_coord_t scale)
