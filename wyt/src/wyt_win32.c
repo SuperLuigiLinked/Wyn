@@ -3,15 +3,17 @@
  * @brief Implementation of Wyt for the Win32 backend.
  */
 
-#include "wyt.h"
-
-#if __STDC_VERSION__ <= 201710L
-    #include <stdbool.h>
-#endif
-
 #define WIN32_LEAN_AND_MEAN
+
+#include <wyt.h>
+
 #include <Windows.h>
 #include <process.h>
+
+#if __STDC_VERSION__ <= 201710L
+    #define true ((wyn_bool_t)1)
+    #define false ((wyn_bool_t)0)
+#endif
 
 // ================================================================================================================================
 //  Private Macros

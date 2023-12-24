@@ -3,9 +3,9 @@
  * @brief Implementation of Wyn for the Xlib backend.
  */
 
-#include "wyn.h"
-
 #define _GNU_SOURCE
+
+#include <wyn.h>
 
 #include <stdatomic.h>
 #include <stddef.h>
@@ -25,6 +25,11 @@
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 #include <X11/extensions/Xrandr.h>
+
+#if __STDC_VERSION__ <= 201710L
+    #define true ((wyn_bool_t)1)
+    #define false ((wyn_bool_t)0)
+#endif
 
 // ================================================================================================================================
 //  Private Macros

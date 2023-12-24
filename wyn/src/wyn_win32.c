@@ -8,9 +8,6 @@
 
 #include <wyn.h>
 
-#if __STDC_VERSION__ <= 201710L
-    #include <stdbool.h>
-#endif
 #if !(defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__)
     #include <stdatomic.h>
 #endif
@@ -19,6 +16,11 @@
 
 #include <Windows.h>
 #include <windowsx.h>
+
+#if __STDC_VERSION__ <= 201710L
+    #define true ((wyn_bool_t)1)
+    #define false ((wyn_bool_t)0)
+#endif
 
 // ================================================================================================================================
 //  Private Macros
@@ -95,7 +97,6 @@ typedef struct wyn_win32_monitor_data_t wyn_win32_monitor_data_t;
 struct wyn_win32_t
 {
     void* userdata; ///< The pointer provided by the user when the Event Loop was started.
-
 #ifdef _VC_NODEFAULTLIB
     HANDLE heap; ///< Process Heap for allocations.
 #endif
@@ -106,7 +107,6 @@ struct wyn_win32_t
     DWORD tid_main; ///< Thread ID of the Main Thread.
     HWND surrogate_hwnd; ///< Last HWND to receive character input.
     WCHAR surrogate_high; ///< Tracks surrogate pairs. @see https://learn.microsoft.com/en-us/windows/win32/intl/surrogates-and-supplementary-characters
-
 #if defined(__STDC_NO_ATOMICS__) && __STDC_NO_ATOMICS__
     LONG quitting; ///< Flag to indicate the Event Loop is quitting.    
 #else
@@ -244,11 +244,11 @@ static wyn_bool_t wyn_win32_reinit(void* const userdata)
     {
         /// @see LoadIconW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadiconw
         const HICON icon = LoadIconW(NULL, IDI_APPLICATION);
-        WYN_ASSUME(icon != NULL);
+        if (icon == NULL) return false;
 
         /// @see LoadCursorW | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-loadcursorw
         const HCURSOR cursor = LoadCursorW(NULL, IDC_ARROW);
-        WYN_ASSUME(cursor != NULL);
+        if (cursor == NULL) return false;
         
         /// @see WNDCLASSEXW | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-wndclassexw
         const WNDCLASSEXW wnd_class = {
