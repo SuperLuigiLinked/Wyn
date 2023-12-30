@@ -154,7 +154,7 @@ static BOOL CALLBACK wyn_win32_enum_monitors_callback(HMONITOR monitor, HDC hdc,
 /**
  * @brief Runs the platform-native Event Loop.
  */
-static void wyn_win32_run_native(void);
+static void wyn_win32_event_loop(void);
 
 /**
  * @brief WndProc for the message-only Window.
@@ -372,7 +372,7 @@ static BOOL CALLBACK wyn_win32_enum_monitors_callback(HMONITOR const monitor, HD
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static void wyn_win32_run_native(void)
+static void wyn_win32_event_loop(void)
 {
     for (;;)
     {
@@ -716,7 +716,7 @@ extern void wyn_run(void* const userdata)
     if (wyn_win32_reinit(userdata))
     {
         wyn_on_start(userdata);
-        wyn_win32_run_native();
+        wyn_win32_event_loop();
         wyn_on_stop(userdata);
     }
     wyn_win32_deinit();
@@ -852,14 +852,14 @@ extern wyn_rect_t wyn_window_position(wyn_window_t const window)
 extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* const origin, const wyn_extent_t* const extent)
 {
     WYN_ASSUME(window != NULL);
+    const HWND hwnd = (HWND)window;
+
     if (wyn_window_is_fullscreen(window)) return;
 
     const LONG rounded_x = origin ? wyn_win32_floor(origin->x) : 0;
     const LONG rounded_y = origin ? wyn_win32_floor(origin->y) : 0;
     const LONG rounded_w = extent ? wyn_win32_ceil(extent->w) : 0;
     const LONG rounded_h = extent ? wyn_win32_ceil(extent->h) : 0;
-
-    const HWND hwnd = (HWND)window;
     
     /// @see GetDpiForWindow | <Windows.h> <winuser.h> [User32] (Windows 10, version 1607) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
     const UINT dpi = GetDpiForWindow(hwnd);

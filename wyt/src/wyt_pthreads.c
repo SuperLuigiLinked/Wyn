@@ -10,6 +10,8 @@
 #include <wyt.h>
 
 #include <limits.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
@@ -25,8 +27,8 @@
 #endif
 
 #if __STDC_VERSION__ <= 201710L
-    #define true ((wyn_bool_t)1)
-    #define false ((wyn_bool_t)0)
+    #define true ((wyt_bool_t)1)
+    #define false ((wyt_bool_t)0)
 #endif
 
 // ================================================================================================================================
@@ -42,7 +44,10 @@
     #define WYT_ASSUME(expr) WYT_ASSERT(expr)
 #endif
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(unreachable)
+    /// @see unreachable | (C23) | https://en.cppreference.com/w/c/program/unreachable 
+    #define WYT_UNREACHABLE() unreachable()
+#elif defined(__GNUC__) || defined(__clang__)
     /// @see __builtin_unreachable | (GCC) | https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html#index-_005f_005fbuiltin_005funreachable
     /// @see __builtin_unreachable | (Clang) | https://clang.llvm.org/docs/LanguageExtensions.html#builtin-unreachable
     #define WYT_UNREACHABLE() __builtin_unreachable()
@@ -166,6 +171,7 @@ WYT_NORETURN extern void wyt_exit(wyt_retval_t const retval)
 {
     /// @see pthread_exit | <pthread.h> [libpthread] (POSIX.1) (macOS 10.4) | https://man7.org/linux/man-pages/man3/pthread_exit.3.html | https://www.unix.com/man-page/mojave/3/pthread_exit/
     pthread_exit(retval);
+    
     WYT_UNREACHABLE();
 }
 

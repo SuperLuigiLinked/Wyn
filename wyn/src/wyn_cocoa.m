@@ -138,7 +138,7 @@ static void wyn_cocoa_stop_callback(void* arg);
 /**
  * @brief Runs the platform-native Event Loop.
  */
-static void wyn_cocoa_run_native(void);
+static void wyn_cocoa_event_loop(void);
 
 // ================================================================================================================================
 //  Private Definitions
@@ -214,7 +214,7 @@ static void wyn_cocoa_stop_callback(void* const arg WYN_UNUSED)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static void wyn_cocoa_run_native(void)
+static void wyn_cocoa_event_loop(void)
 {
     /// @see run | <Cocoa/Cocoa.h> <AppKit/NSApplication.h> [AppKit] (macOS 10.0) | https://developer.apple.com/documentation/appkit/nsapplication/1428631-run?language=objc
     [NSApp run];
@@ -467,7 +467,7 @@ extern void wyn_run(void* const userdata)
         if (wyn_cocoa_reinit(userdata))
         {
             wyn_on_start(userdata);
-            wyn_cocoa_run_native();
+            wyn_cocoa_event_loop();
             wyn_on_stop(userdata);
         }
         wyn_cocoa_deinit();

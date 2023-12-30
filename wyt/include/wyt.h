@@ -144,7 +144,7 @@ extern wyt_thread_t wyt_spawn(wyt_entry_t func, void* arg);
 /**
  * @brief Terminates the current thread.
  * @details The effects are the same as returning from the thread's entry-function.
- * @param retval The value to return to `wyn_join`.
+ * @param retval The value to return to `wyt_join`.
  */
 WYT_NORETURN extern void wyt_exit(wyt_retval_t retval);
 
