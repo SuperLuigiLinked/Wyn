@@ -5,10 +5,6 @@
 
 A collection of C Libraries to ease cross-platform game development.
 
-Currently supports Windows, Linux, and MacOS, compiled with Clang + CMake.
-
-On Windows, can be compiled MSVC, C11 minimum required.
-
 ---
 
 ## Wyn
@@ -24,5 +20,24 @@ Threading/Timing library.
 * **Windows**: Win32
 * **Linux**: Pthreads
 * **MacOS**: Pthreads (+ libdispatch)
+
+---
+
+## Support
+> [!NOTE]
+> The supported versions listed below are estimates. Minimum requirements may change in the future.
+#### Operating Systems:
+* **Windows** 10 v1607 or later
+* **Linux** 3.0 or later
+* **MacOS** 10.12 (Sierra) or later
+#### Standards:
+* **C11** or later
+* **C++20** or later (C++ Example Program only)
+#### Compilers:
+* **Clang**
+* **GCC**
+* **MSVC**
+#### Build Systems:
+* **CMake** 3.25 or later
 
 ---
