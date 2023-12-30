@@ -8,12 +8,12 @@
 
 inline static int app_main(void)
 {
-    LOG("[START]\n");
+    LOG("[START | EXAMPLE-C]\n");
     {
         static App app = {0};
         wyn_run(&app);
     }
-    LOG("[STOP]\n");
+    LOG("[STOP | EXAMPLE-C]\n");
     return EXIT_SUCCESS;
 }
 

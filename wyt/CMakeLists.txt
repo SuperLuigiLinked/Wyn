@@ -2,14 +2,14 @@
 
 # ================================================================================================================================
 
-set(WYT_USE_WIN32    OFF CACHE BOOL "Win32 backend toggle.")
-set(WYT_USE_PTHREADS OFF CACHE BOOL "Pthreads backend toggle.")
+option(WYT_BACKEND_WIN32    "Enables Wyt Win32 backend")
+option(WYT_BACKEND_PTHREADS "Enables Wyt Pthreads backend")
 
-if (NOT (WYT_USE_WIN32 OR WYT_USE_PTHREADS))
+if (NOT (WYT_BACKEND_WIN32 OR WYT_BACKEND_PTHREADS))
     if (WIN32)
-        set(WYT_USE_WIN32 ON)
+        set(WYT_BACKEND_WIN32 ON)
     else()
-        set(WYT_USE_PTHREADS ON)
+        set(WYT_BACKEND_PTHREADS ON)
     endif()
 endif()
 
@@ -23,11 +23,11 @@ add_library(wyn::wyt ALIAS wyt)
 target_include_directories(wyt PUBLIC "include/")
 target_sources(wyt PUBLIC "include/wyt.h")
 
-if (WYT_USE_WIN32)
+if (WYT_BACKEND_WIN32)
     target_sources(wyt PRIVATE "src/wyt_win32.c")
     target_link_libraries(wyt PRIVATE "kernel32")
     target_compile_definitions(wyt PUBLIC "WYT_WIN32")
-elseif (WYT_USE_PTHREADS)
+elseif (WYT_BACKEND_PTHREADS)
     target_sources(wyt PRIVATE "src/wyt_pthreads.c")
     target_link_libraries(wyt "pthread")
     target_compile_definitions(wyt PUBLIC "WYT_PTHREADS")

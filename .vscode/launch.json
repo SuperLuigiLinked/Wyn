@@ -5,9 +5,9 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug",
-            "program": "${workspaceFolder}/build/example/wyn_example",
+            "program": "${workspaceFolder}/build/examples/example_c/wyn_example_c",
             "osx": {
-                "program": "${workspaceFolder}/build/example/wyn_example.app"
+                "program": "${workspaceFolder}/build/examples/example_c/wyn_example_c.app"
             },
             "args": [],
             "cwd": "${workspaceFolder}",
