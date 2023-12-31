@@ -87,17 +87,15 @@ endif()
 
 # ================================================================================================================================
 
-if ((CMAKE_C_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
-    set(WYN_WARNINGS_C
-        "/W4"
-    )
-elseif (CMAKE_C_COMPILER_ID MATCHES "Clang")
+if (CMAKE_C_COMPILER_ID MATCHES "Clang")
     set(WYN_WARNINGS_C
         "-Weverything"
         "-Wno-c++98-compat"
         "-Wno-declaration-after-statement"
-        "-Wno-unused-macros"
+        "-Wno-float-equal"
         "-Wno-padded"
+        "-Wno-unsafe-buffer-usage"
+        "-Wno-unused-macros"
     )
 elseif ((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "GNU"))
     set(WYN_WARNINGS_C
@@ -107,20 +105,21 @@ elseif ((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR (CMAKE_C_COMPILER_FRONTEND_VARIA
         "-Wpedantic"
         "-pedantic"
     )
+elseif ((CMAKE_C_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+    set(WYN_WARNINGS_C
+        "/W4"
+    )
 endif()
 
 # --------------------------------------------------------------------------------------------------------------------------------
 
-if ((CMAKE_CXX_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
-    set(WYN_WARNINGS_CPP
-        "/W4"
-    )
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(WYN_WARNINGS_CPP
         "-Weverything"
         "-Wno-c++98-compat"
         "-Wno-c++98-compat-pedantic"
         "-Wno-c++20-compat"
+        "-Wno-unsafe-buffer-usage"
         "-Wno-unused-macros"
     )
 elseif ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU"))
@@ -130,6 +129,10 @@ elseif ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_FRONTEND_V
         "-Wshadow"
         "-Wpedantic"
         "-pedantic"
+    )
+elseif ((CMAKE_CXX_COMPILER_ID STREQUAL "MSVC") OR (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC"))
+    set(WYN_WARNINGS_CPP
+        "/W4"
     )
 endif()
 
@@ -151,7 +154,6 @@ endif()
 
 if (0)
     include(CMakePrintHelpers)
-
     cmake_print_variables(WYN_BUILD_WYN WYN_BUILD_WYT WYN_BUILD_EXAMPLES)
     cmake_print_variables(WYN_EXAMPLE_C WYN_EXAMPLE_CPP)
     cmake_print_variables(WYN_BACKEND_WIN32 WYN_BACKEND_COCOA WYN_BACKEND_XLIB)
@@ -159,6 +161,8 @@ if (0)
     cmake_print_variables(WYN_FEATURE_STUBS)
     cmake_print_variables(WYN_STANDARD_C WYN_WARNINGS_C)
     cmake_print_variables(WYN_STANDARD_CPP WYN_WARNINGS_CPP)
+    cmake_print_variables(CMAKE_C_COMPILER_ID CMAKE_C_COMPILER_FRONTEND_VARIANT)
+    cmake_print_variables(CMAKE_CXX_COMPILER_ID CMAKE_CXX_COMPILER_FRONTEND_VARIANT)
 endif()
 
 # ================================================================================================================================

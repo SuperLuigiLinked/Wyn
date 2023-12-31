@@ -26,7 +26,7 @@
     #include <semaphore.h>
 #endif
 
-#if __STDC_VERSION__ <= 201710L
+#if (__STDC_VERSION__ <= 201710L)
     #ifdef true
         #undef true
     #endif

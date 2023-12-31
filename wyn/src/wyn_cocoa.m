@@ -13,7 +13,7 @@
 #import <Cocoa/Cocoa.h>
 #import <Carbon/Carbon.h>
 
-#if __STDC_VERSION__ <= 201710L
+#if (__STDC_VERSION__ <= 201710L)
     #ifdef true
         #undef true
     #endif

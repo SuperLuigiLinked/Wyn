@@ -12,23 +12,28 @@
 //  Macros
 // --------------------------------------------------------------------------------------------------------------------------------
 
-#if defined(__cplusplus) && (__cplusplus >= 200809L)
-    /// @see [[noreturn]] | (C++11) | https://en.cppreference.com/w/cpp/feature_test
-    #define WYT_NORETURN [[noreturn]]
-#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202202L)
-    /// @see [[noreturn]] | (C23) | https://en.cppreference.com/w/c/language/attributes
-    #define WYT_NORETURN [[noreturn]]
-#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-    /// @see _Noreturn | (C11) | https://en.cppreference.com/w/c/language/_Noreturn
-    #define WYT_NORETURN _Noreturn
-#else
+#if defined(__cplusplus)
+    #if (__cplusplus >= 200809L) || (defined(_MSVC_LANG) && (_MSVC_LANG >= 200809L))
+        /// @see [[noreturn]] | (C++11) | https://en.cppreference.com/w/cpp/feature_test
+        #define WYT_NORETURN [[noreturn]]
+    #endif
+#elif defined(__STDC_VERSION__)
+    #if (__STDC_VERSION__ >= 202202L)
+        /// @see [[noreturn]] | (C23) | https://en.cppreference.com/w/c/language/attributes
+        #define WYT_NORETURN [[noreturn]]
+    #elif (__STDC_VERSION__ >= 201112L)
+        /// @see _Noreturn | (C11) | https://en.cppreference.com/w/c/language/_Noreturn
+        #define WYT_NORETURN _Noreturn
+    #endif
+#endif
+#ifndef WYT_NORETURN
     #define WYT_NORETURN
 #endif
 
 /**
  * @brief Language-agnostic boolean type.
  */
-#if defined(__cplusplus)
+#ifdef __cplusplus
     typedef bool wyt_bool_t;
 #else
     typedef _Bool wyt_bool_t;

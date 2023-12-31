@@ -25,7 +25,7 @@
 #include <X11/XKBlib.h>
 #include <X11/extensions/Xrandr.h>
 
-#if __STDC_VERSION__ <= 201710L
+#if (__STDC_VERSION__ <= 201710L)
     #ifdef true
         #undef true
     #endif
@@ -52,7 +52,7 @@
 /// @see fprintf | <stdio.h> [libc] (POSIX.1) | https://en.cppreference.com/w/c/io/fprintf | https://man7.org/linux/man-pages/man3/printf.3.html | https://man7.org/linux/man-pages/man3/fprintf.3p.html
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
-#if __STDC_VERSION__ >= 201904L
+#if (__STDC_VERSION__ >= 201904L)
     /// @see [[maybe_unused]] | (C23) | https://en.cppreference.com/w/c/language/attributes/maybe_unused
     #define WYN_UNUSED [[maybe_unused]]
 #else

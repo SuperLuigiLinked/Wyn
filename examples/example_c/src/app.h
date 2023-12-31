@@ -24,7 +24,30 @@
 
 #define LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
+// --------------------------------------------------------------------------------------------------------------------------------
 
+#define STRINGIFY_IMPL(x) #x
+#define STRINGIFY(x) STRINGIFY_IMPL(x)
+
+#if defined(__clang__)
+    #define COMPILER "Clang"
+#elif defined(__GNUC__)
+    #define COMPILER "GCC"
+#elif defined(_MSC_VER)
+    #define COMPILER "MSVC"
+#else
+    #define COMPILER "<???>"
+#endif
+
+#if defined(_MSVC_LANG)
+    #define STANDARD "C++ " STRINGIFY(_MSVC_LANG)
+#elif defined(__cplusplus)
+    #define STANDARD "C++ " STRINGIFY(__cplusplus)
+#elif defined(__STDC_VERSION__)
+    #define STANDARD "C " STRINGIFY(__STDC_VERSION__)
+#else
+    #define STANDARD "<???>"
+#endif
 
 // ================================================================================================================================
 

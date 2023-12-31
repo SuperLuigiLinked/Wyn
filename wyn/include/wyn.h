@@ -25,7 +25,7 @@
 /**
  * @brief Language-agnostic boolean type.
  */
-#if defined(__cplusplus)
+#ifdef __cplusplus
     typedef bool wyn_bool_t;
 #else
     typedef _Bool wyn_bool_t;
@@ -81,17 +81,19 @@ typedef unsigned char wyn_utf8_t;
  * @brief Creates a UTF-8 encoded string literal, if possible.
  */
 #if defined(__cplusplus)
-    #if __cplusplus >= 201103L
+    #if (__cplusplus >= 201103L) || (defined(_MSVC_LANG) && (_MSVC_LANG >= 201103L)) 
         #define WYN_UTF8(str) reinterpret_cast<const wyn_utf8_t*>(u8 ## str)
     #else
         #define WYN_UTF8(str) reinterpret_cast<const wyn_utf8_t*>(str)
     #endif
 #elif defined(__STDC_VERSION__)
-    #if __STDC_VERSION__ >= 201112L
+    #if (__STDC_VERSION__ >= 201112L)
         #define WYN_UTF8(str) ((const wyn_utf8_t*) u8 ## str)
     #else
         #define WYN_UTF8(str) ((const wyn_utf8_t*) str)
     #endif
+#else
+    #define WYN_UTF8(str) ((const wyn_utf8_t*) str)
 #endif
 
 // ================================================================================================================================

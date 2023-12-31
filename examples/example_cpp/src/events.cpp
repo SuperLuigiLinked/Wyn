@@ -33,7 +33,7 @@ static void app_reinit(App* const self)
     const wyn_rect_t monitor = primary_display();
     const wyn_extent_t window_extent = { 640.0, 480.0 };
     const wyn_point_t window_origin = { monitor.origin.x + (monitor.extent.w - window_extent.w) / 2, monitor.origin.y + (monitor.extent.h - window_extent.h) / 2 };
-    const wyn_utf8_t* const window_title = WYN_UTF8("Wyn Example C++");
+    const wyn_utf8_t* const window_title = WYN_UTF8("Wyn Example | " COMPILER " " STANDARD);
 
     self->window = wyn_window_open();
     ASSERT(self->window != nullptr);
@@ -149,6 +149,7 @@ extern void wyn_on_mouse(void* const userdata, wyn_window_t const window, wyn_bu
     LOG("[EVENTS] (%" PRIu64 ") {%p} MOUSE | %d (%d)\n", static_cast<std::uint64_t>(++self->num_events), static_cast<void*>(window), static_cast<int>(button), static_cast<int>(pressed));
     if (window != self->window) return;
 
+    ASSERT(self->vb_mapping != nullptr);
 }
 
 extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn_keycode_t const keycode, wyn_bool_t const pressed)
@@ -156,7 +157,9 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
     App* const self = static_cast<App*>(userdata);
     LOG("[EVENTS] (%" PRIu64 ") {%p} KEYBOARD | %d (%d)\n", static_cast<std::uint64_t>(++self->num_events), static_cast<void*>(window), static_cast<int>(keycode), static_cast<int>(pressed));
     if (window != self->window) return;
-
+    
+    ASSERT(self->vk_mapping != nullptr);
+    
     if (keycode == (*self->vk_mapping)[wyn_vk_Escape])
     {
         if (pressed)

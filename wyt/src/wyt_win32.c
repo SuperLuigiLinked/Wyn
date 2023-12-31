@@ -13,7 +13,7 @@
 #include <Windows.h>
 #include <process.h>
 
-#if __STDC_VERSION__ <= 201710L
+#if (__STDC_VERSION__ <= 201710L)
     #ifdef true
         #undef true
     #endif
