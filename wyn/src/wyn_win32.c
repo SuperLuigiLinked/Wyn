@@ -18,6 +18,12 @@
 #include <windowsx.h>
 
 #if __STDC_VERSION__ <= 201710L
+    #ifdef true
+        #undef true
+    #endif
+    #ifdef false
+        #undef false
+    #endif
     #define true ((wyn_bool_t)1)
     #define false ((wyn_bool_t)0)
 #endif

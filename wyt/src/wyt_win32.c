@@ -14,6 +14,12 @@
 #include <process.h>
 
 #if __STDC_VERSION__ <= 201710L
+    #ifdef true
+        #undef true
+    #endif
+    #ifdef false
+        #undef false
+    #endif
     #define true ((wyt_bool_t)1)
     #define false ((wyt_bool_t)0)
 #endif

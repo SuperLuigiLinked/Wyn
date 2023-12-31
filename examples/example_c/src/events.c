@@ -33,7 +33,7 @@ static void app_reinit(App* const self)
     const wyn_rect_t monitor = primary_display();
     const wyn_extent_t window_extent = { .w = 640.0, .h = 480.0 };
     const wyn_point_t window_origin = { .x = monitor.origin.x + (monitor.extent.w - window_extent.w) / 2, .y = monitor.origin.y + (monitor.extent.h - window_extent.h) / 2 };
-    const wyn_utf8_t* const window_title = (const wyn_utf8_t*)u8"Wyn Example C";
+    const wyn_utf8_t* const window_title = WYN_UTF8("Wyn Example C");
 
     self->window = wyn_window_open();
     ASSERT(self->window != 0);
@@ -98,7 +98,7 @@ extern void wyn_on_window_redraw(void* const userdata, wyn_window_t const window
 extern void wyn_on_window_focus(void* const userdata, wyn_window_t const window, wyt_bool_t const focused)
 {
     App* const self = (App*)userdata;
-    LOG("[EVENTS] (%" PRIu64 ") {%p} FOCUS | %u\n", (uint64_t)++self->num_events, (void*)window, focused);
+    LOG("[EVENTS] (%" PRIu64 ") {%p} FOCUS | %d\n", (uint64_t)++self->num_events, (void*)window, (int)focused);
     if (window != self->window) return;
 
 }
@@ -170,7 +170,11 @@ extern void wyn_on_keyboard(void* const userdata, wyn_window_t const window, wyn
 extern void wyn_on_text(void* const userdata, wyn_window_t const window, const wyn_utf8_t* const text)
 {
     App* const self = (App*)userdata;
-    LOG("[EVENTS] (%" PRIu64 ") {%p} TEXT | [%zu] \"%s\"\n", (uint64_t)++self->num_events, (void*)window, strlen((const char*)text), (const char*)text);
+
+    const char* const chars = (const char*)text;
+    const size_t chars_len = strlen(chars);
+
+    LOG("[EVENTS] (%" PRIu64 ") {%p} TEXT | [%zu] \"%s\"\n", (uint64_t)++self->num_events, (void*)window, chars_len, chars);
     if (window != self->window) return;
 
 }

@@ -226,14 +226,12 @@ extern wyt_bool_t wyt_sem_try_acquire(wyt_sem_t sem);
 #ifdef __cplusplus
 constexpr
 #endif
-inline static wyt_utime_t wyt_scale(const wyt_utime_t val, const wyt_utime_t num, const wyt_utime_t den)
+static inline wyt_utime_t wyt_scale(const wyt_utime_t val, const wyt_utime_t num, const wyt_utime_t den)
 #ifdef __cplusplus
 noexcept
 #endif
 {
-    const wyt_utime_t whole = (val / den) * num;
-    const wyt_utime_t fract = ((val % den) * num) / den;
-    return whole + fract;
+    return ((val / den) * num) + (((val % den) * num) / den);
 }
 
 #ifdef __cplusplus

@@ -14,6 +14,12 @@
 #import <Carbon/Carbon.h>
 
 #if __STDC_VERSION__ <= 201710L
+    #ifdef true
+        #undef true
+    #endif
+    #ifdef false
+        #undef false
+    #endif
     #define true ((wyn_bool_t)1)
     #define false ((wyn_bool_t)0)
 #endif
@@ -34,12 +40,7 @@
 /// @see fprintf | <stdio.h> [libc] (POSIX.1) | https://en.cppreference.com/w/c/io/fprintf | https://www.unix.com/man-page/mojave/3/fprintf/
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
-#if __STDC_VERSION__ >= 201904L
-    /// @see [[maybe_unused]] | (C23) | https://en.cppreference.com/w/c/language/attributes/maybe_unused
-    #define WYN_UNUSED [[maybe_unused]]
-#else
-    #define WYN_UNUSED
-#endif
+#define WYN_UNUSED(x) ((void)(x))
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
@@ -165,10 +166,9 @@ static wyn_bool_t wyn_cocoa_reinit(void* const userdata)
         /// @see delegate | <Cocoa/Cocoa.h> <AppKit/NSApplication.h> [AppKit] (macOS 10.0) | https://developer.apple.com/documentation/appkit/nsapplication/1428705-delegate?language=objc
         [ns_app setDelegate:wyn_cocoa.delegate];
 
-        NSApplicationActivationPolicy const policy = [ns_app activationPolicy];
         /// @see setActivationPolicy | <Cocoa/Cocoa.h> <AppKit/NSApplication.h> [AppKit] (macOS 10.6) | https://developer.apple.com/documentation/appkit/nsapplication/1428621-setactivationpolicy?language=objc
         BOOL const res_act = [ns_app setActivationPolicy:NSApplicationActivationPolicyRegular];
-        (void)(res_act == NO);
+        WYN_UNUSED(res_act == NO);
     }
     return true;
 }
@@ -191,13 +191,17 @@ static void wyn_cocoa_deinit(void)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static void wyn_cocoa_close_callback(void* const arg WYN_UNUSED)
+static void wyn_cocoa_close_callback(void* const arg)
 {
+    WYN_UNUSED(arg);
+
     /// @see enumerateWindowsWithOptions | <Cocoa/Cocoa.h> <AppKit/NSApplication.h> [AppKit] (macOS 10.12) | https://developer.apple.com/documentation/appkit/nsapplication/1644472-enumeratewindowswithoptions?language=objc
     [NSApp
         enumerateWindowsWithOptions:NSWindowListOrderedFrontToBack
-        usingBlock: ^void(NSWindow* const _Nonnull window, BOOL* const _Nonnull stop WYN_UNUSED)
+        usingBlock: ^void(NSWindow* const _Nonnull window, BOOL* const _Nonnull stop)
         {
+            WYN_UNUSED(stop);
+
             /// @see close | <Cocoa/Cocoa.h> <AppKit/NSWindow.h> [AppKit] (macOS 10.0) | https://developer.apple.com/documentation/appkit/nswindow/1419662-close?language=objc
             [window close];
         }
@@ -206,8 +210,10 @@ static void wyn_cocoa_close_callback(void* const arg WYN_UNUSED)
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-static void wyn_cocoa_stop_callback(void* const arg WYN_UNUSED)
+static void wyn_cocoa_stop_callback(void* const arg)
 {
+    WYN_UNUSED(arg);
+    
     /// @see stop | <Cocoa/Cocoa.h> <AppKit/NSApplication.h> [AppKit] (macOS 10.0) | https://developer.apple.com/documentation/appkit/nsapplication/1428473-stop?language=objc
     [NSApp stop:nil];
 }
@@ -515,7 +521,7 @@ extern void wyn_signal(void)
 {
     /// @see dispatch_get_main_queue | <Cocoa/Cocoa.h> <dispatch/dispatch.h> [libdispatch] (macOS 10.10) | https://developer.apple.com/documentation/dispatch/1452921-dispatch_get_main_queue
     /// @see dispatch_async_f | <Cocoa/Cocoa.h> <dispatch/dispatch.h> [libdispatch] (macOS 10.6) | https://developer.apple.com/documentation/dispatch/1452834-dispatch_async_f
-    dispatch_async_f(dispatch_get_main_queue(), wyn_on_signal, wyn_cocoa.userdata);
+    dispatch_async_f(dispatch_get_main_queue(), wyn_cocoa.userdata, wyn_on_signal);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------

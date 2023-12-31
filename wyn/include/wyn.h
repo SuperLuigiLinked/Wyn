@@ -77,6 +77,23 @@ typedef struct wyn_rect_t wyn_rect_t;
  */
 typedef unsigned char wyn_utf8_t;
 
+/**
+ * @brief Creates a UTF-8 encoded string literal, if possible.
+ */
+#if defined(__cplusplus)
+    #if __cplusplus >= 201103L
+        #define WYN_UTF8(str) reinterpret_cast<const wyn_utf8_t*>(u8 ## str)
+    #else
+        #define WYN_UTF8(str) reinterpret_cast<const wyn_utf8_t*>(str)
+    #endif
+#elif defined(__STDC_VERSION__)
+    #if __STDC_VERSION__ >= 201112L
+        #define WYN_UTF8(str) ((const wyn_utf8_t*) u8 ## str)
+    #else
+        #define WYN_UTF8(str) ((const wyn_utf8_t*) str)
+    #endif
+#endif
+
 // ================================================================================================================================
 //  API Functions
 // --------------------------------------------------------------------------------------------------------------------------------
