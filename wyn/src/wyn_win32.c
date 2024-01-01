@@ -706,18 +706,14 @@ static void wyn_win32_heap_free(void* const ptr)
 
 static LONG wyn_win32_floor(wyn_coord_t const val)
 {
-    WYN_ASSUME(val >= 0);
-    
-    return (LONG)val;
+    const LONG cast = (LONG)val;
+    return cast - ((val < 0) && ((wyn_coord_t)cast != val));
 }
 
 static LONG wyn_win32_ceil(wyn_coord_t const val)
 {
-    WYN_ASSUME(val >= 0);
-
-    LONG const cast = (LONG)val;
-    wyn_coord_t const recast = (wyn_coord_t)cast;
-    return (recast == val) ? cast : cast + 1; 
+    const LONG cast = (LONG)val;
+    return cast + ((val >= 0) && ((wyn_coord_t)cast != val));
 }
 
 // ================================================================================================================================

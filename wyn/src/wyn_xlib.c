@@ -613,18 +613,14 @@ static void wyn_xlib_io_error_exit_handler(Display* const display, void* const u
 
 static int wyn_xlib_floor(wyn_coord_t const val)
 {
-    WYN_ASSUME(val >= 0);
-    
-    return (int)val;
+    const int cast = (int)val;
+    return cast - ((val < 0) && ((wyn_coord_t)cast != val));
 }
 
 static int wyn_xlib_ceil(wyn_coord_t const val)
 {
-    WYN_ASSUME(val >= 0);
-
-    int const cast = (int)val;
-    wyn_coord_t const recast = (wyn_coord_t)cast;
-    return (recast == val) ? cast : cast + 1; 
+    const int cast = (int)val;
+    return cast + ((val >= 0) && ((wyn_coord_t)cast != val));
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
