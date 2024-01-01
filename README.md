@@ -32,7 +32,7 @@ Threading/Timing library.
 * **MacOS** 10.12 (Sierra) or later
 #### Standards:
 * **C11** or later
-* **C++20** or later (C++ Example Program only)
+* **C++11** or later
 #### Compilers:
 * **Clang**
 * **GCC**
