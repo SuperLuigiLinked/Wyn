@@ -36,7 +36,7 @@
 #elif defined(_MSC_VER)
     #define COMPILER "MSVC"
 #else
-    #define COMPILER "<???>"
+    #define COMPILER "<?>"
 #endif
 
 #if defined(_MSVC_LANG)
@@ -46,7 +46,7 @@
 #elif defined(__STDC_VERSION__)
     #define STANDARD "C " STRINGIFY(__STDC_VERSION__)
 #else
-    #define STANDARD "<???>"
+    #define STANDARD "<?>"
 #endif
 
 // ================================================================================================================================

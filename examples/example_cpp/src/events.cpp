@@ -33,7 +33,7 @@ static void app_reinit(App* const self)
     const wyn_rect_t monitor = primary_display();
     const wyn_extent_t window_extent = { 640.0, 480.0 };
     const wyn_point_t window_origin = { monitor.origin.x + (monitor.extent.w - window_extent.w) / 2, monitor.origin.y + (monitor.extent.h - window_extent.h) / 2 };
-    const wyn_utf8_t* const window_title = WYN_UTF8("Wyn Example | " COMPILER " " STANDARD);
+    const wyn_utf8_t* const window_title = WYN_UTF8("Wyn Example" " | " COMPILER " | " STANDARD);
 
     self->window = wyn_window_open();
     ASSERT(self->window != nullptr);

@@ -52,12 +52,7 @@
 /// @see fprintf | <stdio.h> [libc] (POSIX.1) | https://en.cppreference.com/w/c/io/fprintf | https://man7.org/linux/man-pages/man3/printf.3.html | https://man7.org/linux/man-pages/man3/fprintf.3p.html
 #define WYN_LOG(...) (void)fprintf(stderr, __VA_ARGS__)
 
-#if (__STDC_VERSION__ >= 201904L)
-    /// @see [[maybe_unused]] | (C23) | https://en.cppreference.com/w/c/language/attributes/maybe_unused
-    #define WYN_UNUSED [[maybe_unused]]
-#else
-    #define WYN_UNUSED
-#endif
+#define WYN_UNUSED(x) ((void)(x))
 
 // ================================================================================================================================
 //  Private Declarations
@@ -207,9 +202,11 @@ static wyn_bool_t wyn_xlib_reinit(void* userdata)
     }
     {
         /// @see XSetErrorHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetErrorHandler.3.en
-        WYN_UNUSED const XErrorHandler prev_error = XSetErrorHandler(wyn_xlib_error_handler);
+        const XErrorHandler prev_error = XSetErrorHandler(wyn_xlib_error_handler);
+        WYN_UNUSED(prev_error);
         /// @see XSetIOErrorHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetIOErrorHandler.3.en
-        WYN_UNUSED const XIOErrorHandler prev_io_error = XSetIOErrorHandler(wyn_xlib_io_error_handler);
+        const XIOErrorHandler prev_io_error = XSetIOErrorHandler(wyn_xlib_io_error_handler);
+        WYN_UNUSED(prev_io_error);
         /// @see XSetIOErrorExitHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetIOErrorHandler.3.en
         XSetIOErrorExitHandler(wyn_xlib.display, wyn_xlib_io_error_exit_handler, NULL);
     }
@@ -224,12 +221,18 @@ static wyn_bool_t wyn_xlib_reinit(void* userdata)
         if (wyn_xlib.evt_fd == -1) return false;
     }
     {
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
+    #if 0
         /// @see XInternAtoms | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XInternAtom.3.xhtml | https://man.archlinux.org/man/extra/libx11/XInternAtoms.3.en
-        const Status res_atoms = XInternAtoms(wyn_xlib.display, wyn_xlib_atom_names, wyn_xlib_atom_len, true, wyn_xlib.atoms);
+        const Status res_atoms = XInternAtoms(wyn_xlib.display, (char**)wyn_xlib_atom_names, wyn_xlib_atom_len, True, wyn_xlib.atoms);
         if (res_atoms == 0) return false;
-        #pragma GCC diagnostic pop
+    #else
+        /// @see XInternAtom | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XInternAtom.3.xhtml | https://man.archlinux.org/man/extra/libx11/XInternAtom.3.en
+        for (int i = 0; i < wyn_xlib_atom_len; ++i)
+        {
+            wyn_xlib.atoms[i] = XInternAtom(wyn_xlib.display, wyn_xlib_atom_names[i], True);
+            if (wyn_xlib.atoms[i] == None) return false;
+        }
+    #endif
     }
     {
         /// @see XOpenIM | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XOpenIM.3.xhtml | https://man.archlinux.org/man/extra/libx11/XOpenIM.3.en
@@ -265,12 +268,14 @@ static void wyn_xlib_deinit(void)
     if (wyn_xlib.xim != NULL)
     {
         /// @see XCloseIM | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XOpenIM.3.xhtml | https://man.archlinux.org/man/extra/libx11/XCloseIM.3.en
-        WYN_UNUSED const Status res_im = XCloseIM(wyn_xlib.xim);
+        const Status res_im = XCloseIM(wyn_xlib.xim);
+        WYN_UNUSED(res_im);
     }
     if (wyn_xlib.display != NULL)
     {
         /// @see XCloseDisplay | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XOpenDisplay.3.xhtml | https://man.archlinux.org/man/extra/libx11/XCloseDisplay.3.en
-        WYN_UNUSED const int res_disp = XCloseDisplay(wyn_xlib.display);
+        const int res_disp = XCloseDisplay(wyn_xlib.display);
+        WYN_UNUSED(res_disp);
     }
 }
 
@@ -280,7 +285,8 @@ static void wyn_xlib_event_loop(void)
 {
     {
         /// @see XFlush | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml | https://man.archlinux.org/man/extra/libx11/XFlush.3.en
-        WYN_UNUSED const int res_flush = XFlush(wyn_xlib.display);
+        const int res_flush = XFlush(wyn_xlib.display);
+        WYN_UNUSED(res_flush);
     }
 
     while (!wyn_quitting())
@@ -323,7 +329,8 @@ static void wyn_xlib_dispatch_x11(wyn_bool_t const sync)
     if (sync)
     {
         /// @see XSync | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSync.3.en
-        WYN_UNUSED const int res_sync = XSync(wyn_xlib.display, False);
+        const int res_sync = XSync(wyn_xlib.display, False);
+        WYN_UNUSED(res_sync);
     }
 
     /// @see XPending | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XFlush.3.xhtml | https://man.archlinux.org/man/extra/libx11/XPending.3.en
@@ -332,7 +339,8 @@ static void wyn_xlib_dispatch_x11(wyn_bool_t const sync)
         /// @see XEvent | <X11/Xlib> (Xlib) | https://www.x.org/releases/current/doc/man/man3/XAnyEvent.3.xhtml | https://man.archlinux.org/man/extra/libx11/XEvent.3.en
         XEvent event;
         /// @see XNextEvent | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XNextEvent.3.xhtml | https://man.archlinux.org/man/extra/libx11/XNextEvent.3.en
-        WYN_UNUSED const int res_next = XNextEvent(wyn_xlib.display, &event);
+        const int res_next = XNextEvent(wyn_xlib.display, &event);
+        WYN_UNUSED(res_next);
 
         WYN_EVT_LOG("[X-EVENT] (%2d)\n", event.type);
 
@@ -416,7 +424,7 @@ static void wyn_xlib_dispatch_x11(wyn_bool_t const sync)
             case EnterNotify:
             {
                 const XEnterWindowEvent* const xevt = &event.xcrossing;
-                (void)xevt;
+                WYN_UNUSED(xevt);
                 break;
             }
             
@@ -537,7 +545,8 @@ static void wyn_xlib_dispatch_x11(wyn_bool_t const sync)
                     {
                         case RRScreenChangeNotify:
                         {
-                            WYN_UNUSED const XRRScreenChangeNotifyEvent* const xevt = (const XRRScreenChangeNotifyEvent*)&event;
+                            const XRRScreenChangeNotifyEvent* const xevt = (const XRRScreenChangeNotifyEvent*)&event;
+                            WYN_UNUSED(xevt);
                             wyn_on_display_change(wyn_xlib.userdata);
                             break;
                         }
@@ -545,6 +554,7 @@ static void wyn_xlib_dispatch_x11(wyn_bool_t const sync)
                         // case RRNotify:
                         // {
                         //     const XRRNotifyEvent* const xevt = (const XRRNotifyEvent*)&event;
+                        //     WYN_UNUSED(xevt);
                         //     break;
                         // }
                     }
@@ -571,8 +581,10 @@ static void wyn_xlib_dispatch_evt(void)
 // --------------------------------------------------------------------------------------------------------------------------------
 
 /// @see XSetErrorHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetErrorHandler.3.en
-static int wyn_xlib_error_handler(Display* const display WYN_UNUSED, XErrorEvent* const error)
+static int wyn_xlib_error_handler(Display* const display, XErrorEvent* const error)
 {
+    WYN_UNUSED(display); WYN_UNUSED(error);
+
     WYN_LOG("[XLIB ERROR] <%d> %hhu (%hhu.%hhu)\n",
         error->type, error->error_code, error->request_code, error->minor_code
     );
@@ -580,15 +592,19 @@ static int wyn_xlib_error_handler(Display* const display WYN_UNUSED, XErrorEvent
 }
 
 /// @see XSetIOErrorHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetIOErrorHandler.3.en
-static int wyn_xlib_io_error_handler(Display* const display WYN_UNUSED)
+static int wyn_xlib_io_error_handler(Display* const display)
 {
+    WYN_UNUSED(display);
+
     WYN_LOG("[XLIB IO ERROR]\n");
     return 0;
 }
 
 /// @see XSetIOErrorExitHandler | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetErrorHandler.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetIOErrorHandler.3.en
-static void wyn_xlib_io_error_exit_handler(Display* const display WYN_UNUSED, void* const userdata WYN_UNUSED)
+static void wyn_xlib_io_error_exit_handler(Display* const display, void* const userdata)
 {
+    WYN_UNUSED(display); WYN_UNUSED(userdata);
+
     WYN_LOG("[XLIB IO ERROR EXIT]\n");
     wyn_quit();
 }
@@ -717,7 +733,8 @@ extern wyn_window_t wyn_window_open(void)
 
     #if 0
         /// @see XSetWindowBackground | <X11/Xlib.h> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XChangeWindowAttributes.3.xhtml | https://man.archlinux.org/man/extra/libx11/XSetWindowBackground.3.en
-        WYN_UNUSED const int res_back = XSetWindowBackground(wyn_xlib.display, x11_window, BlackPixel(wyn_xlib.display, DefaultScreen(wyn_xlib.display)));
+        const int res_back = XSetWindowBackground(wyn_xlib.display, x11_window, BlackPixel(wyn_xlib.display, DefaultScreen(wyn_xlib.display)));
+        WYN_UNUSED(res_back);
     #endif
     }
 
@@ -732,7 +749,8 @@ extern void wyn_window_close(wyn_window_t const window)
     Window const x11_window = (Window)window;
     
     /// @see XDestroyWindow | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XDestroyWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XDestroyWindow.3.en
-    WYN_UNUSED const int res = XDestroyWindow(wyn_xlib.display, x11_window);
+    const int res = XDestroyWindow(wyn_xlib.display, x11_window);
+    WYN_UNUSED(res);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
@@ -743,7 +761,9 @@ extern void wyn_window_show(wyn_window_t const window)
     Window const x11_window = (Window)window;
     
     /// @see XMapRaised | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XMapWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XMapRaised.3.en
-    WYN_UNUSED const int res = XMapRaised(wyn_xlib.display, x11_window);
+    const int res = XMapRaised(wyn_xlib.display, x11_window);
+    WYN_UNUSED(res);
+
     wyn_xlib_dispatch_x11(true);
 }
 
@@ -755,15 +775,18 @@ extern void wyn_window_hide(wyn_window_t const window)
     Window const x11_window = (Window)window;
 
     /// @see XUnmapWindow | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XUnmapWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XUnmapWindow.3.en
-    WYN_UNUSED const int res = XUnmapWindow(wyn_xlib.display, x11_window);
+    const int res = XUnmapWindow(wyn_xlib.display, x11_window);
+    WYN_UNUSED(res);
+
     wyn_xlib_dispatch_x11(true);
 }
 
 // --------------------------------------------------------------------------------------------------------------------------------
 
-extern wyn_coord_t wyn_window_scale(wyn_window_t const window WYN_UNUSED)
+extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     WYN_ASSUME(window != NULL);
+    WYN_UNUSED(window);
 
     return (wyn_coord_t)1.0;
 }
@@ -801,17 +824,20 @@ extern void wyn_window_reposition(wyn_window_t const window, const wyn_point_t* 
     if (origin && extent)
     {
         /// @see XMoveResizeWindow | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XMoveResizeWindow.3.en
-        WYN_UNUSED const int res = XMoveResizeWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        const int res = XMoveResizeWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        WYN_UNUSED(res);
     }
     else if (extent)
     {
         /// @see XResizeWindow | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XResizeWindow.3.en
-        WYN_UNUSED const int res = XResizeWindow(wyn_xlib.display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        const int res = XResizeWindow(wyn_xlib.display, x11_window, (unsigned int)rounded_w, (unsigned int)rounded_h);
+        WYN_UNUSED(res);
     }
     else if (origin)
     {
         /// @see XMoveWindow | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XConfigureWindow.3.xhtml | https://man.archlinux.org/man/extra/libx11/XMoveWindow.3.en
-        WYN_UNUSED const int res = XMoveWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y);
+        const int res = XMoveWindow(wyn_xlib.display, x11_window, (int)rounded_x, (int)rounded_y);
+        WYN_UNUSED(res);
     }
 
     wyn_xlib_dispatch_x11(true);
@@ -859,7 +885,9 @@ extern wyn_bool_t wyn_window_is_fullscreen(wyn_window_t const window)
     }
 
     /// @see XFree | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XFree.3.xhtml | https://man.archlinux.org/man/extra/libx11/XFree.3.en
-    WYN_UNUSED const int res_free = XFree(value);
+    const int res_free = XFree(value);
+    WYN_UNUSED(res_free);
+
     return found;
 }
 
@@ -893,7 +921,8 @@ extern void wyn_window_retitle(wyn_window_t const window, const wyn_utf8_t* cons
     Window const x11_window = (Window)window;
 
     /// @see XStoreName | <X11/Xlib> [libX11] (Xlib) | https://www.x.org/releases/current/doc/man/man3/XSetWMName.3.xhtml | https://man.archlinux.org/man/extra/libx11/XStoreName.3.en
-    WYN_UNUSED const int res = XStoreName(wyn_xlib.display, x11_window, (title ? (const char*)title : ""));
+    const int res = XStoreName(wyn_xlib.display, x11_window, (title ? (const char*)title : ""));
+    WYN_UNUSED(res);
 }
 
 // ================================================================================================================================
@@ -948,7 +977,8 @@ extern wyn_rect_t wyn_display_position(wyn_display_t const display)
 extern void* wyn_native_context(wyn_window_t const window)
 {
     WYN_ASSUME(window != NULL);
-    
+    WYN_UNUSED(window);
+
     return wyn_xlib.display;
 }
 
@@ -1066,7 +1096,7 @@ extern const wyn_vk_mapping_t* wyn_vk_mapping(void)
     mapping[wyn_vk_NumpadMultiply] = wyn_xlib_map_keysym(XK_KP_Multiply);
     mapping[wyn_vk_NumpadDivide]   = wyn_xlib_map_keysym(XK_KP_Divide);
     mapping[wyn_vk_NumpadDecimal]  = wyn_xlib_map_keysym(XK_KP_Decimal);
-    return &mapping;
+    return (const wyn_vk_mapping_t*)&mapping;
 }
 
 // ================================================================================================================================
