@@ -457,7 +457,7 @@ static LRESULT CALLBACK wyn_win32_wndproc(HWND const hwnd, UINT const umsg, WPAR
         case WM_ACTIVATE:
         {
             wyn_on_window_focus(wyn_win32.userdata, window, wparam != WA_INACTIVE);
-            break;
+            return 0;
         }
         /// @see https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-windowposchanged
         case WM_WINDOWPOSCHANGED:
@@ -465,53 +465,45 @@ static LRESULT CALLBACK wyn_win32_wndproc(HWND const hwnd, UINT const umsg, WPAR
             wyn_on_window_reposition(wyn_win32.userdata, window, wyn_window_position(window), (wyn_coord_t)1.0);
             return 0;
         }
-        /// @see https://learn.microsoft.com/en-us/windows/win32/devio/wm-devicechange
-        case WM_DEVICECHANGE:
+        /// @see https://learn.microsoft.com/en-us/windows/win32/gdi/wm-displaychange
+        case WM_DISPLAYCHANGE:
         {
-            WYN_LOG("[WYN] WM_DEVICECHANGE\n");
             wyn_on_display_change(wyn_win32.userdata);
-            break;
-        }
-        /// @see https://learn.microsoft.com/en-us/windows/win32/gdi/wm-devmodechange
-        case WM_DEVMODECHANGE:
-        {
-            WYN_LOG("[WYN] WM_DEVMODECHANGE\n");
-            wyn_on_display_change(wyn_win32.userdata);
-            break;
+            return 0;
         }
         /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousemove
         case WM_MOUSEMOVE:
         {
-            /// @see GET_X_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_x_lparam
-            const int xpos = GET_X_LPARAM(lparam);
-            /// @see GET_Y_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_y_lparam
-            const int ypos = GET_Y_LPARAM(lparam);
-            wyn_on_cursor(wyn_win32.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
-
             /// @see TRACKMOUSEEVENT | <Windows.h> <winuser.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-trackmouseevent
             TRACKMOUSEEVENT track = {
                 .cbSize = sizeof(TRACKMOUSEEVENT),
-                .dwFlags = TME_LEAVE | TME_HOVER,
+                .dwFlags = TME_LEAVE,
                 .hwndTrack = hwnd,
-                .dwHoverTime = HOVER_DEFAULT,
+                .dwHoverTime = 0,
             };
             /// @see TrackMouseEvent | <Windows.h> <winuser.h> [User32] (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-trackmouseevent
             const BOOL res_track = TrackMouseEvent(&track);
             WYN_ASSERT(res_track != 0);
 
+            /// @see GET_X_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_x_lparam
+            const int xpos = GET_X_LPARAM(lparam);
+            /// @see GET_Y_LPARAM | <windowsx.h> (Windows 2000) | https://learn.microsoft.com/en-us/windows/win32/api/windowsx/nf-windowsx-get_y_lparam
+            const int ypos = GET_Y_LPARAM(lparam);
+
+            wyn_on_cursor(wyn_win32.userdata, window, (wyn_coord_t)xpos, (wyn_coord_t)ypos);
             return 0;
         }
         /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousehover
-        case WM_MOUSEHOVER:
-        {
-            WYN_LOG("[WYN] WM_MOUSEHOVER\n");
-            break;
-        }
+        // case WM_MOUSEHOVER:
+        // {
+        //     WYN_LOG("[WYN] WM_MOUSEHOVER\n");
+        //     break;
+        // }
         /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mouseleave
         case WM_MOUSELEAVE:
         {
             wyn_on_cursor_exit(wyn_win32.userdata, window);
-            break;
+            return 0;
         }
         /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-mousewheel
         case WM_MOUSEWHEEL:
@@ -531,8 +523,8 @@ static LRESULT CALLBACK wyn_win32_wndproc(HWND const hwnd, UINT const umsg, WPAR
             const wyn_coord_t norm = (wyn_coord_t)delta / (wyn_coord_t)WHEEL_DELTA;
             const wyn_coord_t dx = (umsg == WM_MOUSEHWHEEL ? norm : 0.0);
             const wyn_coord_t dy = (umsg == WM_MOUSEWHEEL  ? norm : 0.0);
-            wyn_on_scroll(wyn_win32.userdata, window, dx, dy);
 
+            wyn_on_scroll(wyn_win32.userdata, window, dx, dy);
             return 0;
         }
         /// @see https://learn.microsoft.com/en-us/windows/win32/inputdev/wm-lbuttondown
