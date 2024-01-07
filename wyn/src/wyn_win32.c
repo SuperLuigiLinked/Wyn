@@ -824,6 +824,7 @@ extern void wyn_window_hide(wyn_window_t const window)
 extern wyn_coord_t wyn_window_scale(wyn_window_t const window)
 {
     WYN_ASSUME(window != NULL);
+    WYN_UNUSED(window);
 
     return (wyn_coord_t)1.0;
 }
@@ -1005,6 +1006,7 @@ extern wyn_rect_t wyn_display_position(wyn_display_t const display)
 extern void* wyn_native_context(wyn_window_t const window)
 {
     WYN_ASSUME(window != NULL);
+    WYN_UNUSED(window);
 
     return wyn_win32.hinstance;
 }
